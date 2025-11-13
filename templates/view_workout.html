@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <h1>Trening z dnia {{ workout.date }}</h1>
+    <p><strong>Godzina rozpoczęcia:</strong> {{ workout.start_time }}</p>
+    <p><strong>Czas trwania:</strong> {{ workout.duration }} min</p>
+    <p><strong>Notatki:</strong> {{ workout.notes or "Brak" }}</p>
+
+    <h2>Ćwiczenia</h2>
+    {% if exercises %}
+        <ul>
+        {% for exercise in exercises %}
+            <li>
+                <strong>{{ exercise.name }}</strong> ({{ exercise.body_part }})<br>
+                Serie: {{ exercise.sets }}, Powtórzenia: {{ exercise.reps }}
+            </li>
+        {% endfor %}
+        </ul>
+    {% else %}
+        <p>Brak ćwiczeń w tym treningu.</p>
+    {% endif %}
+
+    <a href="{{ url_for('workout_history') }}">Powrót</a>
+{% endblock %}

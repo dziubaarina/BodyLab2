@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+
+{% block title %}Dodaj Trening{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h3 class="mb-0">Dodaj Nowy Trening</h3>
+                </div>
+                <div class="card-body">
+                    <form method="POST">
+                        {{ form.hidden_tag() }}
+
+                        <!-- Dane treningu -->
+                        <div class="row mb-3">
+                            <div class="col-md-4">
+                                <label class="form-label">{{ form.date.label }}</label>
+                                {{ form.date(class="form-control", type="date", required=True) }}
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">{{ form.start_time.label }}</label>
+                                {{ form.start_time(class="form-control", type="time", required=True) }}
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">{{ form.duration.label }} <small class="text-muted">(min)</small></label>
+                                {{ form.duration(class="form-control", placeholder="60", required=True) }}
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">{{ form.notes.label }}</label>
+                            {{ form.notes(class="form-control", rows=3, placeholder="Jak się czułeś? Uwagi...") }}
+                        </div>
+
+                        <hr class="my-4">
+
+                        <!-- Ćwiczenia -->
+                        <h5 class="mb-3">
+                            Ćwiczenia
+                            <button type="button" class="btn btn-sm btn-outline-success ms-2" id="add-exercise">
+                                + Dodaj
+                            </button>
+                        </h5>
+
+                        <div id="exercise-list">
+                            <div class="exercise-row border rounded p-3 mb-3 bg-light">
+                                <div class="row g-2 align-items-center">
+                                    <div class="col-md-6">
+                                        <label class="form-label small text-muted">Ćwiczenie</label>
+                                        <input list="exercise-suggestions" name="exercise_name" class="form-control" placeholder="Wpisz lub wybierz..." required>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label small text-muted">Serie</label>
+                                        <input type="number" name="exercise_sets" class="form-control" min="1" value="3" required>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label small text-muted">Powt.</label>
+                                        <input type="number" name="exercise_reps" class="form-control" min="1" value="10" required>
+                                    </div>
+                                    <div class="col-md-2 text-end">
+                                        <button type="button" class="btn btn-danger btn-sm remove-exercise">Usuń</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Datalist z podpowiedziami -->
+                        <datalist id="exercise-suggestions">
+                            {% for ex in exercise_suggestions %}
+                                <option value="{{ ex }}">
+                            {% endfor %}
+                        </datalist>
+
+                        <hr class="my-4">
+                        <div class="text-center">
+                            {{ form.submit(class="btn btn-success btn-lg px-5") }}
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.getElementById('add-exercise').addEventListener('click', function() {
+        const container = document.getElementById('exercise-list');
+        const firstRow = container.querySelector('.exercise-row');
+        const newRow = firstRow.cloneNode(true);
+        newRow.querySelectorAll('input').forEach(input => {
+            if (input.type === 'number') {
+                input.value = input.name.includes('sets') ? '3' : '10';
+            } else {
+                input.value = '';
+            }
+        });
+        container.appendChild(newRow);
+    });
+
+    document.addEventListener('click', function(e) {
+        if (e.target.classList.contains('remove-exercise')) {
+            const row = e.target.closest('.exercise-row');
+            if (document.querySelectorAll('.exercise-row').length > 1) {
+                row.remove();
+            } else {
+                alert('Musi być co najmniej jedno ćwiczenie!');
+            }
+        }
+    });
+</script>
+{% endblock %}

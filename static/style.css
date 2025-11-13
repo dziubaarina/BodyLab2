@@ -1,0 +1,116 @@
+/* Ogólne stylowanie */
+body {
+    background-color: #1e1e2f;
+    color: #b0b0b0;
+    font-family: 'Arial', sans-serif;
+}
+
+/* Stylizacja kontenera */
+.container {
+    background: #2c2827;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+}
+
+/* Nagłówki */
+h1, h2 {
+    color: #d8b0b0;
+}
+
+/* Akapity (teksty opisowe) */
+p {
+    color: #8a8a8a;
+    font-size: 16px;
+}
+
+/* Formularze */
+form {
+    background: #3a3a4a;
+    padding: 20px;
+    border-radius: 10px;
+}
+
+form p {
+    margin-bottom: 15px;
+}
+
+input, select, textarea {
+    background: #2c2827;
+    color: #e0e0e0;
+    border: 1px solid #555;
+    padding: 8px;
+    border-radius: 5px;
+    width: 100%;
+}
+
+input:focus, select:focus, textarea:focus {
+    border-color: #d8b0b0;
+    outline: none;
+}
+
+/* Przyciski */
+button, .btn {
+    background: #d8b0b0;
+    color: #1e1e2f;
+    padding: 10px 15px;
+    border-radius: 5px;
+    font-weight: bold;
+    text-transform: uppercase;
+    border: none;
+    cursor: pointer;
+}
+
+button:hover, .btn:hover {
+    background: #b56400;
+    color: #fff;
+}
+
+/* Nawigacja */
+.navbar {
+    background: #181824;
+}
+
+.navbar-brand, .nav-link {
+    color: #d8b0b0 !important;
+}
+
+.nav-link:hover {
+    color: #b56400 !important;
+}
+
+/* Boxy */
+.workout-box {
+    background: #3a3a4a;
+    padding: 15px;
+    border-radius: 10px;
+    box-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
+}
+
+.workout-box h2 {
+    color: #d8b0b0;
+}
+
+/* Lista ćwiczeń */
+.workout-box ul {
+    list-style-type: none;
+    padding: 0;
+}
+
+.workout-box ul li {
+    background: #2c2827;
+    padding: 10px;
+    margin: 5px 0;
+    border-radius: 5px;
+    color: #e0e0e0;
+}
+
+/* Linki */
+a {
+    color: #d8b0b0;
+}
+
+a:hover {
+    color: #b56400;
+    text-decoration: none;
+}

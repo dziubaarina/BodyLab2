@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <h1>Historia Treningów</h1>
+    <ul>
+    {% for workout in workouts %}
+        <li>
+            <h2>Trening z dnia {{ workout.date }}</h2>
+            <p><strong>Godzina:</strong> {{ workout.start_time }}</p>
+            <p><strong>Czas trwania:</strong> {{ workout.duration }} min</p>
+            <p><strong>Notatki:</strong> {{ workout.notes or "Brak" }}</p>
+
+            <h3>Ćwiczenia:</h3>
+            {% for exercise in workout.exercises %}
+                <p>{{ exercise.name }} ({{ exercise.body_part }}) - {{ exercise.sets }}x{{ exercise.reps }}</p>
+            {% endfor %}
+        </li>
+    {% endfor %}
+    </ul>
+{% endblock %}

@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+
+{% block title %}Rezerwuj Zajęcia{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="display-4">Rezerwuj Zajęcia</h1>
+            <p class="lead">Wybierz zajęcia dla siebie. Dziś jest {{ today.strftime('%A, %d.%m.%Y') }}.</p>
+        </div>
+    </div>
+    <hr>
+
+    <!-- Pasek zakładek (Tabs) -->
+    <ul class="nav nav-pills nav-fill mb-4" id="bookingTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="grupowe-tab" data-bs-toggle="tab" data-bs-target="#grupowe" type="button" role="tab" aria-controls="grupowe" aria-selected="true">
+                Treningi Grupowe
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="indywidualne-tab" data-bs-toggle="tab" data-bs-target="#indywidualne" type="button" role="tab" aria-controls="indywidualne" aria-selected="false">
+                Treningi Indywidualne
+            </button>
+        </li>
+    </ul>
+
+    <!-- Zawartość Zakładek -->
+    <div class="tab-content" id="bookingTabsContent">
+        
+        <!-- === Zakładka Treningi Grupowe === -->
+        <div class="tab-pane fade show active" id="grupowe" role="tabpanel" aria-labelledby="grupowe-tab">
+            {% if not sessions_grupowe %}
+                <div class="alert alert-info">Brak nadchodzących zajęć grupowych.</div>
+            {% else %}
+                <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+                    {% for session in sessions_grupowe %}
+                        {% include '_session_card.html' %}
+                    {% endfor %}
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- === Zakładka Treningi Indywidualne === -->
+        <div class="tab-pane fade" id="indywidualne" role="tabpanel" aria-labelledby="indywidualne-tab">
+            {% if not sessions_indywidualne %}
+                <div class="alert alert-info">Brak nadchodzących zajęć indywidualnych.</div>
+            {% else %}
+                <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+                    {% for session in sessions_indywidualne %}
+                        {% include '_session_card.html' %}
+                    {% endfor %}
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<!-- Opcjonalny skrypt do zapamiętania aktywnej zakładki -->
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        var triggerTabList = [].slice.call(document.querySelectorAll('#bookingTabs button'))
+        triggerTabList.forEach(function (triggerEl) {
+            var tabTrigger = new bootstrap.Tab(triggerEl)
+
+            triggerEl.addEventListener('click', function (event) {
+                event.preventDefault()
+                tabTrigger.show()
+                localStorage.setItem('activeBookingTab', triggerEl.getAttribute('data-bs-target'))
+            })
+        })
+
+        var activeTab = localStorage.getItem('activeBookingTab')
+        if (activeTab) {
+            var someTabTriggerEl = document.querySelector('button[data-bs-target="' + activeTab + '"]')
+            if (someTabTriggerEl) {
+                var tab = new bootstrap.Tab(someTabTriggerEl)
+                tab.show()
+            }
+        }
+    });
+</script>
+{% endblock %}

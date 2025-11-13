@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block title %}Ogłoszenia{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <h1 class="text-center mb-5">Ogłoszenia i aktualności</h1>
+
+    <div class="row">
+        <div class="col-lg-8 mx-auto">
+            {% for post in posts %}
+            <div class="card mb-4 shadow-sm border-0">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <h5 class="card-title mb-0">{{ post.title }}</h5>
+                        <span class="badge fs-6" style="background: #fdf2f8; color: #d8b0b0; border: 2px solid #2c2827;">{{ post.date }}</span>
+                    </div>
+                    <p class="card-text text-muted">{{ post.content }}</p>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Pusty stan (gdy nie ma ogłoszeń) -->
+    {% if not posts %}
+    <div class="text-center py-5">
+        <p class="text-muted fs-4">Brak aktualnych ogłoszeń</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

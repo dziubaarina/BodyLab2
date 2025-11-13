@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <h1>Witaj, {{ user.username }}!</h1>
+    <h2>Twoje treningi</h2>
+    <ul>
+        {% for workout in workouts %}
+            <li>
+                <strong>{{ workout.date }}</strong> - {{ workout.start_time }} ({{ workout.duration }} min)
+                <a href="{{ url_for('view_workout', workout_id=workout.id) }}">Szczegóły</a>
+            </li>
+        {% endfor %}
+    </ul>
+{% endblock %}
+

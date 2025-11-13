@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="text-center">
+        <h2 class="mb-3">Infrastruktura i Wyposażenie</h2>
+        <p class="lead mb-4">Nasza siłownia BodyLab została zaprojektowana z myślą o Twoim komforcie i efektywności treningu. Oferujemy nowoczesne wyposażenie i pełne zaplecze socjalne.</p>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-6 mb-4">
+            <div class="card h-100 shadow-sm">
+                <img src="{{ url_for('static', filename='images/maszyny.jpg') }}" class="card-img-top" alt="Strefa Maszyn Siłowych">
+                <div class="card-body">
+                    <h5 class="card-title"><i class="fas fa-dumbbell"></i> Strefa Maszyn Siłowych</h5>
+                    <p class="card-text">Posiadamy pełen zestaw maszyn izotonicznych (stosowych) na każdą partię mięśniową. Nasz sprzęt pochodzi od wiodących producentów, co gwarantuje bezpieczeństwo i ergonomię.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-6 mb-4">
+            <div class="card h-100 shadow-sm">
+                <img src="{{ url_for('static', filename='images/cardio.jpg') }}" class="card-img-top" alt="Strefa Cardio">
+                <div class="card-body">
+                    <h5 class="card-title"><i class="fas fa-running"></i> Strefa Cardio</h5>
+                    <p class="card-text">Do Twojej dyspozycji oddajemy bieżnie, orbitreki, rowery stacjonarne oraz ergometry wioślarskie, aby zadbać o Twoją kondycję.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-6 mb-4">
+            <div class="card h-100 shadow-sm">
+                <img src="{{ url_for('static', filename='images/ciezary.jpg') }}" class="card-img-top" alt="Strefa Wolnych Ciężarów">
+                <div class="card-body">
+                    <h5 class="card-title"><i class="fas fa-weight-hanging"></i> Strefa Wolnych Ciężarów</h5>
+                    <p class="card-text">Szeroki wybór hantli (od 1 kg do 50 kg), sztangi olimpijskie, ławki regulowane oraz w pełni wyposażone stojaki do przysiadów (racki).</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-6 mb-4">
+            <div class="card h-100 shadow-sm">
+                <img src="{{ url_for('static', filename='images/fitness.jpg') }}" class="card-img-top" alt="Sala Treningowa">
+                <div class="card-body">
+                    <h5 class="card-title"><i class="fas fa-users"></i> Sala Treningowa</h5>
+                    <p class="card-text">Przestronna, klimatyzowana sala do treningu funkcjonalnego i zajęć grupowych, wyposażona w maty, skrzynie, piłki i kettlebells.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header text-center">
+                    <h4>Nasze Udogodnienia</h4>
+                </div>
+                <div class="card-body">
+                    <ul class="list-group list-group-flush row d-flex flex-row flex-wrap">
+                        <li class="list-group-item col-md-6 col-lg-4 border-0"><i class="fas fa-shower"></i> Nowoczesne łazienki z prysznicami</li>
+                        <li class="list-group-item col-md-6 col-lg-4 border-0"><i class="fas fa-lock"></i> Przestronne szatnie z szafkami</li>
+                        <li class="list-group-item col-md-6 col-lg-4 border-0"><i class="fas fa-water"></i> Darmowa woda filtrowana</li>
+                        <li class="list-group-item col-md-6 col-lg-4 border-0"><i class="fas fa-wifi"></i> Bezpłatne Wi-Fi</li>
+                        <li class="list-group-item col-md-6 col-lg-4 border-0"><i class="fas fa-parking"></i> Duży parking przed budynkiem</li>
+                        <li class="list-group-item col-md-6 col-lg-4 border-0"><i class="fas fa-store"></i> Sklepik z odżywkami i napojami</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

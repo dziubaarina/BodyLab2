@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block title %}Przenieś Rezerwację{% endblock %}
+
+{% block content %}
+<!-- Ta strona używa domyślnego jasnego tła, tak jak create_session.html -->
+<h1 class="display-5 mb-3">{{ title }}</h1>
+
+<p class="lead">
+    Przenosisz rezerwację dla użytkownika <strong>{{ booking.user.username }}</strong>
+    <br>
+    z zajęć: <span class="fw-bold text-danger">{{ booking.session.title }} ({{ booking.session.date.strftime('%Y-%m-%d') }})</span>
+</p>
+
+<hr>
+
+<form method="POST" action="{{ url_for('move_booking', booking_id=booking.id) }}" novalidate>
+    {{ form.hidden_tag() }}
+    
+    <div class="mb-4">
+        <label for="{{ form.new_session.id }}" class="form-label fs-5">{{ form.new_session.label }}</label>
+        
+        {% if form.new_session.choices %}
+            {{ form.new_session(class="form-select form-select-lg") }}
+            <small class="form-text text-muted">
+                Wyświetlane są tylko Twoje nadchodzące zajęcia, które mają wolne miejsca.
+            </small>
+        {% else %}
+            <div class="alert alert-warning">
+                Nie masz żadnych innych dostępnych zajęć, na które można przenieść tego użytkownika. 
+                <a href="{{ url_for('create_session') }}">Stwórz nowe zajęcia</a>.
+            </div>
+        {% endif %}
+
+        {% for error in form.new_session.errors %}
+            <span class="text-danger">{{ error }}</span>
+        {% endfor %}
+    </div>
+
+    <hr>
+    
+    <div class="d-flex justify-content-between">
+        <a href="{{ url_for('manage_session', session_id=booking.session_id) }}" class="btn btn-secondary btn-lg">
+            <i class="fas fa-times me-2"></i> Anuluj
+        </a>
+        
+        <!-- Pokaż przycisk tylko jeśli są dostępne zajęcia -->
+        {% if form.new_session.choices %}
+            {{ form.submit(class="btn btn-success btn-lg") }}
+        {% endif %}
+    </div>
+</form>
+
+{% endblock %}

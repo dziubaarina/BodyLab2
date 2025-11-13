@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<h1 class="display-5 mb-4">{{ title }}</h1>
+<p class="lead mb-4">Wypełnij poniższy formularz, aby dodać nowe zajęcia do grafiku.</p>
+
+<!-- Formularz Bootstrapowy -->
+<form method="POST" action="{{ url_for('create_session') }}" novalidate>
+    {{ form.hidden_tag() }}
+
+    <div class="row g-3">
+        <!-- Lewa kolumna -->
+        <div class="col-md-6">
+            <div class="mb-3">
+                {{ form.title.label(class="form-label") }}
+                {{ form.title(class="form-control form-control-lg", placeholder="np. Zdrowy Kręgosłup") }}
+                {% for error in form.title.errors %}
+                <div class="invalid-feedback d-block">{{ error }}</div>
+                {% endfor %}
+            </div>
+
+            <div class="mb-3">
+                {{ form.session_type.label(class="form-label") }}
+                {{ form.session_type(class="form-select form-select-lg") }}
+                {% for error in form.session_type.errors %}
+                <div class="invalid-feedback d-block">{{ error }}</div>
+                {% endfor %}
+            </div>
+
+            <div class="mb-3">
+                {{ form.description.label(class="form-label") }}
+                {{ form.description(class="form-control", rows=5, placeholder="Opisz krótko, na czym będą polegać zajęcia...") }}
+                {% for error in form.description.errors %}
+                <div class="invalid-feedback d-block">{{ error }}</div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Prawa kolumna -->
+        <div class="col-md-6">
+            <div class="mb-3">
+                {{ form.date.label(class="form-label") }}
+                {{ form.date(class="form-control", type="date") }} <!-- Używamy natywnego "date" dla łatwego wyboru -->
+                {% for error in form.date.errors %}
+                <div class="invalid-feedback d-block">{{ error }}</div>
+                {% endfor %}
+            </div>
+
+            <div class="mb-3">
+                {{ form.start_time.label(class="form-label") }}
+                {{ form.start_time(class="form-control", type="time") }} <!-- Używamy natywnego "time" -->
+                {% for error in form.start_time.errors %}
+                <div class="invalid-feedback d-block">{{ error }}</div>
+                {% endfor %}
+            </div>
+
+            <div class="row g-3">
+                <div class="col-sm-6">
+                    <div class="mb-3">
+                        {{ form.duration_minutes.label(class="form-label") }}
+                        {{ form.duration_minutes(class="form-control") }}
+                        {% for error in form.duration_minutes.errors %}
+                        <div class="invalid-feedback d-block">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="col-sm-6">
+                    <div class="mb-3">
+                        {{ form.price.label(class="form-label") }}
+                        {{ form.price(class="form-control") }}
+                        {% for error in form.price.errors %}
+                        <div class="invalid-feedback d-block">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="mb-3">
+                {{ form.max_participants.label(class="form-label") }}
+                {{ form.max_participants(class="form-control") }}
+                {% for error in form.max_participants.errors %}
+                <div class="invalid-feedback d-block">{{ error }}</div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Przycisk zapisu -->
+    <hr class="my-4">
+    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+        <a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline-secondary btn-lg">Anuluj</a>
+        {{ form.submit(class="btn btn-primary btn-lg") }}
+    </div>
+
+</form>
+{% endblock %}

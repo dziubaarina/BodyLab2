@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="text-center mb-4">Cennik Karnetów</h2>
+    
+    <div class="row">
+        <div class="col-md-4 mb-4">
+            <div class="card h-100 shadow-sm">
+                <div class="card-body d-flex flex-column">
+                    <h5 class="card-title text-center">Wejście Jednorazowe</h5>
+                    <h6 class="card-subtitle mb-2 text-muted text-center">Idealne na start</h6>
+                    <p class="card-text text-center display-4 my-3">30 zł</p>
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item">Dostęp do wszystkich stref</li>
+                        <li class="list-group-item">Ważne przez 1 dzień</li>
+                        <li class="list-group-item">Szatnia i prysznic w cenie</li>
+                    </ul>
+                    <div class="mt-auto pt-3">
+                        {% if current_user.is_authenticated %}
+                            <a href="{{ url_for('dashboard') }}" class="btn btn-outline-primary w-100">Wybieram</a>
+                        {% else %}
+                            <a href="{{ url_for('register') }}" class="btn btn-outline-primary w-100">Wybieram</a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4 mb-4">
+            <div class="card h-100 shadow border-primary">
+                <div class="card-header text-center bg-primary text-white">Najpopularniejszy</div>
+                <div class="card-body d-flex flex-column">
+                    <h5 class="card-title text-center">Karnet OPEN</h5>
+                    <h6 class="card-subtitle mb-2 text-muted text-center">Bez ograniczeń</h6>
+                    <p class="card-text text-center display-4 my-3">129 zł</p>
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item">Nielimitowane wejścia</li>
+                        <li class="list-group-item">Ważny przez 30 dni</li>
+                        <li class="list-group-item">Darmowa woda</li>
+                    </ul>
+                    <div class="mt-auto pt-3">
+                        {% if current_user.is_authenticated %}
+                            <a href="{{ url_for('dashboard') }}" class="btn btn-primary w-100">Wybieram</a>
+                        {% else %}
+                            <a href="{{ url_for('register') }}" class="btn btn-primary w-100">Wybieram</a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4 mb-4">
+            <div class="card h-100 shadow-sm">
+                <div class="card-body d-flex flex-column">
+                    <h5 class="card-title text-center">Karnet Kwartalny</h5>
+                    <h6 class="card-subtitle mb-2 text-muted text-center">Oszczędzasz!</h6>
+                    <p class="card-text text-center display-4 my-3">350 zł</p>
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item">Nielimitowane wejścia</li>
+                        <li class="list-group-item">Ważny przez 90 dni</li>
+                        <li class="list-group-item">Analiza składu ciała gratis</li>
+                    </ul>
+                    <div class="mt-auto pt-3">
+                        {% if current_user.is_authenticated %}
+                            <a href="{{ url_for('dashboard') }}" class="btn btn-outline-primary w-100">Wybieram</a>
+                        {% else %}
+                            <a href="{{ url_for('register') }}" class="btn btn-outline-primary w-100">Wybieram</a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
