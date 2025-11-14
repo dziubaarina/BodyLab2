@@ -94,6 +94,26 @@
                 <span class="text-danger small">{{ error }}</span>
             {% endfor %}
         </div>
+
+        <!-- === NOWE POLA CYKLICZNOŚCI === -->
+        <div class="col-12">
+            <hr>
+            <div class="form-check form-switch mb-3">
+                {{ form.is_recurring(class="form-check-input", id="isRecurringCheck") }}
+                {{ form.is_recurring.label(class="form-check-label") }}
+            </div>
+
+            <!-- Ta sekcja pokaże się tylko po zaznaczeniu checkboxa -->
+            <div id="recurrenceOptions" class="col-md-6" style="display: none;">
+                {{ form.recurrence_weeks.label(class="form-label") }}
+                {{ form.recurrence_weeks(class="form-control", style="width: 200px;") }}
+                {% for error in form.recurrence_weeks.errors %}
+                    <span class="text-danger small">{{ error }}</span>
+                {% endfor %}
+            </div>
+        </div>
+        <!-- === KONIEC NOWYCH PÓL === -->
+
     </div>
 
     <hr class="my-4">
@@ -103,4 +123,18 @@
         {{ form.submit(class="btn btn-primary") }}
     </div>
 </form>
+{% endblock %}
+
+{% block scripts %}
+<!-- JavaScript do pokazywania/ukrywania opcji cykliczności -->
+<script>
+    document.getElementById('isRecurringCheck').addEventListener('change', function() {
+        var recurrenceOptions = document.getElementById('recurrenceOptions');
+        if (this.checked) {
+            recurrenceOptions.style.display = 'block';
+        } else {
+            recurrenceOptions.style.display = 'none';
+        }
+    });
+</script>
 {% endblock %}

@@ -4,15 +4,19 @@ from flask_migrate import Migrate
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_wtf import FlaskForm
-from wtforms import StringField, PasswordField, SubmitField, TextAreaField, SelectField, IntegerField, HiddenField
+# Dodajemy BooleanField
+from wtforms import StringField, PasswordField, SubmitField, TextAreaField, SelectField, IntegerField, HiddenField, \
+    BooleanField
 from wtforms.fields import DateField, TimeField
 from wtforms.validators import DataRequired, Email, EqualTo, NumberRange, InputRequired
 from config import Config
 from functools import wraps
-from datetime import date, time, datetime
+# Dodajemy timedelta (do obliczania tygodni) i uuid (do grupowania sesji)
+from datetime import date, time, datetime, timedelta
+import uuid
 from sqlalchemy import Date, Time, or_
 import sys
-import click  # Import dla komend CLI
+import click
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -30,14 +34,9 @@ class User(db.Model, UserMixin):
     username = db.Column(db.String(50), unique=True, nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(256), nullable=False)
-
-    # --- NOWY SYSTEM RÓL ---
-    # Role: 'user' (użytkownik), 'trainer' (trener), 'admin' (menedżer)
     role = db.Column(db.String(20), nullable=False, default='user')
+    experience_notes = db.Column(db.Text, nullable=True)
 
-    experience_notes = db.Column(db.Text, nullable=True)  # Notatki o doświadczeniu
-
-    # Relacje
     sessions_taught = db.relationship('TrainingSession', back_populates='trainer', lazy='dynamic')
     bookings = db.relationship('Booking', back_populates='user', lazy='dynamic')
     messages_sent = db.relationship('Message', foreign_keys='Message.sender_id', back_populates='sender',
@@ -45,7 +44,6 @@ class User(db.Model, UserMixin):
     messages_received = db.relationship('Message', foreign_keys='Message.recipient_id', back_populates='recipient',
                                         lazy='dynamic')
 
-    # Właściwości ułatwiające sprawdzanie ról w szablonach
     @property
     def is_admin(self):
         return self.role == 'admin'
@@ -73,6 +71,10 @@ class TrainingSession(db.Model):
     max_participants = db.Column(db.Integer, nullable=False, default=10)
     trainer_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
 
+    # --- NOWA KOLUMNA ---
+    # Unikalny identyfikator do grupowania zajęć cyklicznych
+    recurrence_group_id = db.Column(db.String(36), nullable=True, index=True)
+
     trainer = db.relationship('User', back_populates='sessions_taught')
     bookings = db.relationship('Booking', back_populates='session', lazy='dynamic', cascade="all, delete-orphan")
 
@@ -89,10 +91,8 @@ class Booking(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     session_id = db.Column(db.Integer, db.ForeignKey('training_session.id'), nullable=False)
-
     user = db.relationship('User', back_populates='bookings')
     session = db.relationship('TrainingSession', back_populates='bookings')
-
     __table_args__ = (db.UniqueConstraint('user_id', 'session_id', name='_user_session_uc'),)
 
 
@@ -102,7 +102,6 @@ class Message(db.Model):
     recipient_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     content = db.Column(db.Text, nullable=False)
     timestamp = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-
     sender = db.relationship('User', foreign_keys=[sender_id], back_populates='messages_sent')
     recipient = db.relationship('User', foreign_keys=[recipient_id], back_populates='messages_received')
 
@@ -163,9 +162,13 @@ class SessionForm(FlaskForm):
                                     validators=[DataRequired(), NumberRange(min=30, max=240)], default=60)
     price = IntegerField("Cena (w zł)", validators=[DataRequired(), NumberRange(min=0)], default=0)
     max_participants = IntegerField("Limit miejsc", validators=[DataRequired(), NumberRange(min=1)], default=10)
-
-    # Pole wyboru trenera, widoczne tylko dla admina
     trainer = SelectField("Prowadzący Trener", coerce=int, validators=[InputRequired()])
+
+    # --- NOWE POLA CYKLICZNOŚCI ---
+    is_recurring = BooleanField("Zajęcia cykliczne (co tydzień)")
+    recurrence_weeks = IntegerField("Powtórz przez (liczba tygodni)", default=4,
+                                    validators=[NumberRange(min=1, max=52)])
+
     submit = SubmitField("Zapisz zajęcia")
 
     def __init__(self, *args, **kwargs):
@@ -361,7 +364,25 @@ def add_workout():
         )
         db.session.add(workout)
         db.session.commit()
-        # ... (logika dodawania ćwiczeń) ...
+
+        exercise_names = request.form.getlist('exercise_name')
+        exercise_sets = request.form.getlist('exercise_sets')
+        exercise_reps = request.form.getlist('exercise_reps')
+
+        for i in range(len(exercise_names)):
+            name = exercise_names[i].strip()
+            if name:
+                body_part = EXERCISE_TO_BODY_PART.get(name, "Inne")
+                exercise = Exercise(
+                    workout_id=workout.id,
+                    body_part=body_part,
+                    name=name,
+                    sets=int(exercise_sets[i]),
+                    reps=int(exercise_reps[i])
+                )
+                db.session.add(exercise)
+
+        db.session.commit()
         flash("Trening dodany!", "success")
         return redirect(url_for("dashboard"))
 
@@ -458,6 +479,37 @@ def book_session():
     return redirect(url_for('booking'))
 
 
+# === NOWA TRASA: WYPISZ SIĘ Z ZAJĘĆ ===
+@app.route("/unbook_session", methods=["POST"])
+@login_required
+def unbook_session():
+    session_id = request.form.get('session_id')
+
+    # Znajdź rezerwację tego użytkownika na te konkretne zajęcia
+    booking = Booking.query.filter_by(user_id=current_user.id, session_id=session_id).first()
+
+    if booking:
+        try:
+            # Sprawdzenie, czy zajęcia już się nie odbyły (opcjonalne, ale dobre)
+            if booking.session.date < date.today():
+                flash("Nie możesz wypisać się z zajęć, które już się odbyły.", "warning")
+                return redirect(url_for('booking'))
+
+            db.session.delete(booking)
+            db.session.commit()
+            flash("Pomyślnie wypisano z zajęć.", "success")
+        except Exception as e:
+            db.session.rollback()
+            flash(f"Wystąpił błąd podczas wypisywania: {e}", "danger")
+    else:
+        flash("Nie znaleziono takiej rezerwacji. Być może już się wypisałeś.", "info")
+
+    return redirect(url_for('booking'))
+
+
+# === KONIEC NOWEJ TRASY ===
+
+
 @app.route("/trainer_profile/<int:trainer_id>")
 @login_required
 def trainer_profile(trainer_id):
@@ -482,7 +534,6 @@ def admin_dashboard():
 @login_required
 @admin_required
 def admin_edit_user(user_id):
-    # Prosta edycja roli (na przyszłość można rozbudować)
     user_to_edit = db.session.get(User, user_id)
     new_role = request.form.get('role')
     if user_to_edit and new_role in ['user', 'trainer', 'admin']:
@@ -504,11 +555,8 @@ def admin_edit_user(user_id):
 @trainer_required
 def trainer_dashboard():
     query = TrainingSession.query
-    # Menedżer widzi wszystkie zajęcia
     if not current_user.is_admin:
-        # Trener widzi tylko swoje
         query = query.filter_by(trainer_id=current_user.id)
-
     my_sessions = query.order_by(TrainingSession.date.desc()).all()
     return render_template("trainer_dashboard.html", my_sessions=my_sessions)
 
@@ -519,31 +567,54 @@ def trainer_dashboard():
 def create_session():
     form = SessionForm()
 
-    # Jeśli trener, zablokuj pole i ustaw na siebie
     if not current_user.is_admin:
         form.trainer.data = current_user.id
 
     if form.validate_on_submit():
         try:
-            # Prowadzącym jest osoba wybrana z formularza (jeśli admin)
-            # lub zalogowany użytkownik (jeśli trener)
             trainer_id_to_assign = form.trainer.data
 
-            new_session = TrainingSession(
-                title=form.title.data,
-                session_type=form.session_type.data,
-                description=form.description.data,
-                date=form.date.data,
-                start_time=form.start_time.data,
-                duration_minutes=form.duration_minutes.data,
-                price=form.price.data,
-                max_participants=form.max_participants.data,
-                trainer_id=trainer_id_to_assign
-            )
-            db.session.add(new_session)
+            if form.is_recurring.data:
+                num_weeks = form.recurrence_weeks.data
+                start_date = form.date.data
+                group_id = str(uuid.uuid4())
+
+                for i in range(num_weeks):
+                    session_date = start_date + timedelta(weeks=i)
+                    new_session = TrainingSession(
+                        title=form.title.data,
+                        session_type=form.session_type.data,
+                        description=form.description.data,
+                        date=session_date,
+                        start_time=form.start_time.data,
+                        duration_minutes=form.duration_minutes.data,
+                        price=form.price.data,
+                        max_participants=form.max_participants.data,
+                        trainer_id=trainer_id_to_assign,
+                        recurrence_group_id=group_id
+                    )
+                    db.session.add(new_session)
+
+                flash(f"Pomyślnie utworzono {num_weeks} cyklicznych zajęć: {form.title.data}", "success")
+
+            else:
+                new_session = TrainingSession(
+                    title=form.title.data,
+                    session_type=form.session_type.data,
+                    description=form.description.data,
+                    date=form.date.data,
+                    start_time=form.start_time.data,
+                    duration_minutes=form.duration_minutes.data,
+                    price=form.price.data,
+                    max_participants=form.max_participants.data,
+                    trainer_id=trainer_id_to_assign
+                )
+                db.session.add(new_session)
+                flash(f"Pomyślnie utworzono nowe zajęcia: {form.title.data}", "success")
+
             db.session.commit()
-            flash(f"Pomyślnie utworzono nowe zajęcia: {new_session.title}", "success")
             return redirect(url_for('trainer_dashboard'))
+
         except Exception as e:
             db.session.rollback()
             flash(f"Wystąpił błąd podczas tworzenia zajęć: {e}", "danger")
@@ -563,7 +634,6 @@ def manage_session(session_id):
         flash("Nie znaleziono takich zajęć.", "danger")
         return redirect(url_for('trainer_dashboard'))
 
-    # Trener może zarządzać tylko swoimi zajęciami (admin może wszystkimi)
     if not current_user.is_admin and session.trainer_id != current_user.id:
         flash("Nie masz uprawnień do zarządzania tymi zajęciami.", "danger")
         return redirect(url_for('trainer_dashboard'))
@@ -580,7 +650,6 @@ def cancel_booking(booking_id):
         flash("Nie znaleziono takiej rezerwacji.", "danger")
         return redirect(url_for('trainer_dashboard'))
 
-    # Sprawdzenie uprawnień (czy to admin lub trener prowadzący te zajęcia)
     session_id = booking.session.id
     if not current_user.is_admin and booking.session.trainer_id != current_user.id:
         flash("Nie masz uprawnień do anulowania tej rezerwacji.", "danger")
@@ -609,7 +678,6 @@ def move_booking(booking_id):
     session = booking_to_move.session
     user = booking_to_move.user
 
-    # Sprawdzenie uprawnień
     if not current_user.is_admin and session.trainer_id != current_user.id:
         flash("Nie masz uprawnień do zarządzania tą rezerwacją.", "danger")
         return redirect(url_for('trainer_dashboard'))
@@ -628,7 +696,6 @@ def move_booking(booking_id):
             flash(f"Użytkownik {user.username} jest już zapisany na wybrane zajęcia.", "warning")
         else:
             try:
-                # Aktualizujemy starą rezerwację na nową sesję
                 booking_to_move.session_id = new_session_id
                 db.session.commit()
                 flash(f"Pomyślnie przeniesiono {user.username} na zajęcia {new_session.title}.", "success")
@@ -641,13 +708,11 @@ def move_booking(booking_id):
 
 
 # === KOMENDY CLI ===
-# To jest nowa, prosta metoda tworzenia kont (zamiast flask shell)
 
 @app.cli.command("create-accounts")
 def create_accounts():
     """Tworzy konto Menedżera i 3 konta Trenerów."""
     try:
-        # --- KONTO MENEDŻERA (ADMINA) ---
         admin_email = 'admin@bodylab.pl'
         admin_pass = 'admin123'
         admin_username = 'Menedżer'
@@ -659,7 +724,6 @@ def create_accounts():
             db.session.add(admin_user)
             print(f"Stworzono MENEDŻERA: {admin_email}")
 
-        # === TWOJE KONTA TRENERÓW ===
         TRENERZY_DO_STWORZENIA = [
             {"imie": "Arina Dziuba", "email": "arina@bodylab.pl", "haslo": "trener123"},
             {"imie": "Laura Iwanowska", "email": "laura@bodylab.pl", "haslo": "trener123"},

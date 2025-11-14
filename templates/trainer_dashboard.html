@@ -59,7 +59,13 @@
                     <tr>
                         <td>{{ session.date.strftime('%Y-%m-%d') }}</td>
                         <td>{{ session.start_time.strftime('%H:%M') }}</td>
-                        <td>{{ session.title }}</td>
+                        <td>
+                            {{ session.title }}
+                            <!-- NOWA IKONA CYKLICZNOŚCI -->
+                            {% if session.recurrence_group_id %}
+                                <i class="fas fa-sync-alt text-muted ms-1" title="Zajęcia cykliczne"></i>
+                            {% endif %}
+                        </td>
                         <td>
                             <span class="badge {% if session.session_type == 'Grupowy' %}bg-primary{% else %}bg-success{% endif %}">
                                 {{ session.session_type }}
@@ -90,7 +96,6 @@
                             <a href="{{ url_for('manage_session', session_id=session.id) }}" class="btn btn-primary btn-sm" title="Zarządzaj uczestnikami">
                                 <i class="fas fa-users"></i> Zarządzaj
                             </a>
-                            <!-- Można dodać przycisk Edytuj/Usuń sesję -->
                         </td>
                     </tr>
                 {% endfor %}
@@ -106,3 +111,31 @@
 </div>
 
 {% endblock %}
+```
+
+---
+
+### Plik 4: `instrukcja_migracji.md` (Bardzo Ważne!)
+
+Tym razem **NIE MUSISZ** resetować bazy danych. Musisz tylko wykonać migrację, aby dodać nową kolumnę `recurrence_group_id`.
+
+```markdown
+# Instrukcja Migracji (BEZ RESETU)
+
+1.  **Zatrzymaj aplikację** (w terminalu naciśnij `Ctrl + C`).
+
+2.  **Wygeneruj nowy skrypt migracji**:
+    (System zobaczy, że dodałeś `recurrence_group_id` w `app.py`)
+    ```bash
+    flask db migrate -m "Dodanie ID grupy dla zajec cyklicznych"
+    ```
+
+3.  **Zastosuj migrację do bazy danych**:
+    (To jest najważniejszy krok. Doda nową kolumnę.)
+    ```bash
+    flask db upgrade
+    ```
+
+4.  **Uruchom aplikację**:
+    ```bash
+    flask run
