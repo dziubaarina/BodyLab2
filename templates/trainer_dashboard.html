@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+
+{% block title %}Panel Trenera{% endblock %}
+
+{% block content %}
+<style>
+    .progress {
+        font-size: 0.85rem;
+        height: 25px;
+        position: relative;
+    }
+    .progress-bar-text {
+        position: absolute;
+        width: 100%;
+        text-align: center;
+        line-height: 25px;
+        font-weight: bold;
+    }
+    .text-dark {
+        color: #212529 !important;
+    }
+    .text-light {
+        color: #f8f9fa !important;
+    }
+    .progress-bar {
+        min-width: 3.5em; /* Minimalna szerokość, aby tekst był widoczny */
+    }
+</style>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h2">Panel Trenera</h1>
+    <a href="{{ url_for('create_session') }}" class="btn btn-success">
+        <i class="fas fa-plus me-2"></i>Stwórz Nowe Zajęcia
+    </a>
+</div>
+
+<h3 class="h5 mb-3" style="color: #d8b0b0;">Zarządzaj Zajęciami</h3>
+<p class="text-muted">Poniżej znajduje się lista zajęć. Menedżer widzi wszystkie zajęcia, a Trener tylko swoje.</p>
+
+<div class="table-responsive">
+    <table class="table table-hover align-middle">
+        <thead class="table-dark">
+            <tr>
+                <th scope="col">Data</th>
+                <th scope="col">Godzina</th>
+                <th scope="col">Tytuł</th>
+                <th scope="col">Typ</th>
+                {% if current_user.is_admin %}
+                    <th scope="col">Prowadzący</th>
+                {% endif %}
+                <th scope="col">Zapisani (Limit)</th>
+                <th scope="col">Cena</th>
+                <th scope="col">Akcje</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% if my_sessions %}
+                {% for session in my_sessions %}
+                    <tr>
+                        <td>{{ session.date.strftime('%Y-%m-%d') }}</td>
+                        <td>{{ session.start_time.strftime('%H:%M') }}</td>
+                        <td>{{ session.title }}</td>
+                        <td>
+                            <span class="badge {% if session.session_type == 'Grupowy' %}bg-primary{% else %}bg-success{% endif %}">
+                                {{ session.session_type }}
+                            </span>
+                        </td>
+
+                        {% if current_user.is_admin %}
+                            <td>{{ session.trainer.username }}</td>
+                        {% endif %}
+
+                        <td>
+                            {% set percent = (session.current_participants / session.max_participants) * 100 %}
+                            {% set is_full = session.is_full %}
+                            {% set bg_color = 'bg-danger' if is_full else ('bg-warning' if percent > 70 else 'bg-success') %}
+                            {% set text_color = 'text-light' if is_full or percent <= 70 else 'text-dark' %}
+
+                            <div class="progress" title="{{ session.current_participants }} / {{ session.max_participants }}">
+                                <div class="progress-bar {{ bg_color }}" role="progressbar" style="width: {{ percent }}%;"
+                                     aria-valuenow="{{ session.current_participants }}" aria-valuemin="0" aria-valuemax="{{ session.max_participants }}">
+                                </div>
+                                <span class="progress-bar-text {{ text_color }}">
+                                    {{ session.current_participants }} / {{ session.max_participants }}
+                                </span>
+                            </div>
+                        </td>
+                        <td>{{ session.price }} zł</td>
+                        <td>
+                            <a href="{{ url_for('manage_session', session_id=session.id) }}" class="btn btn-primary btn-sm" title="Zarządzaj uczestnikami">
+                                <i class="fas fa-users"></i> Zarządzaj
+                            </a>
+                            <!-- Można dodać przycisk Edytuj/Usuń sesję -->
+                        </td>
+                    </tr>
+                {% endfor %}
+            {% else %}
+                <tr>
+                    <td colspan="{% if current_user.is_admin %}8{% else %}7{% endif %}" class="text-center text-muted">
+                        Nie utworzyłeś jeszcze żadnych zajęć.
+                    </td>
+                </tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>
+
+{% endblock %}
