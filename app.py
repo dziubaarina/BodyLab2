@@ -509,7 +509,7 @@ def unbook_session():
 
 # === KONIEC NOWEJ TRASY ===
 
-
+###fff
 @app.route("/trainer_profile/<int:trainer_id>")
 @login_required
 def trainer_profile(trainer_id):
