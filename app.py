@@ -247,7 +247,7 @@ EXERCISE_TO_BODY_PART = {
     "Burpees": "Całe ciało", "Dipy na poręczach": "Triceps"
 }
 
-
+#rrrrr
 # === TRASY PUBLICZNE ===
 
 @app.route("/")
