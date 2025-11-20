@@ -4,14 +4,12 @@ from flask_migrate import Migrate
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_wtf import FlaskForm
-# Dodajemy BooleanField
 from wtforms import StringField, PasswordField, SubmitField, TextAreaField, SelectField, IntegerField, HiddenField, \
     BooleanField
 from wtforms.fields import DateField, TimeField
 from wtforms.validators import DataRequired, Email, EqualTo, NumberRange, InputRequired
 from config import Config
 from functools import wraps
-# Dodajemy timedelta (do obliczania tygodni) i uuid (do grupowania sesji)
 from datetime import date, time, datetime, timedelta
 import uuid
 from sqlalchemy import Date, Time, or_
@@ -70,9 +68,6 @@ class TrainingSession(db.Model):
     price = db.Column(db.Integer, nullable=False, default=0)
     max_participants = db.Column(db.Integer, nullable=False, default=10)
     trainer_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-
-    # --- NOWA KOLUMNA ---
-    # Unikalny identyfikator do grupowania zajęć cyklicznych
     recurrence_group_id = db.Column(db.String(36), nullable=True, index=True)
 
     trainer = db.relationship('User', back_populates='sessions_taught')
@@ -163,31 +158,24 @@ class SessionForm(FlaskForm):
     price = IntegerField("Cena (w zł)", validators=[DataRequired(), NumberRange(min=0)], default=0)
     max_participants = IntegerField("Limit miejsc", validators=[DataRequired(), NumberRange(min=1)], default=10)
     trainer = SelectField("Prowadzący Trener", coerce=int, validators=[InputRequired()])
-
-    # --- NOWE POLA CYKLICZNOŚCI ---
     is_recurring = BooleanField("Zajęcia cykliczne (co tydzień)")
     recurrence_weeks = IntegerField("Powtórz przez (liczba tygodni)", default=4,
                                     validators=[NumberRange(min=1, max=52)])
-
     submit = SubmitField("Zapisz zajęcia")
 
     def __init__(self, *args, **kwargs):
         super(SessionForm, self).__init__(*args, **kwargs)
-        # Dynamiczne wypełnienie listy trenerów (rolą 'trainer' lub 'admin')
         self.trainer.choices = [(u.id, u.username) for u in
                                 User.query.filter(or_(User.role == 'trainer', User.role == 'admin')).all()]
 
 
 class MoveBookingForm(FlaskForm):
-    # Lista rozwijana z dostępnymi sesjami
     new_session = SelectField("Wybierz nowe zajęcia", coerce=int, validators=[DataRequired()])
     submit = SubmitField("Przenieś rezerwację")
 
     def __init__(self, original_session_id=None, *args, **kwargs):
         super(MoveBookingForm, self).__init__(*args, **kwargs)
         today = date.today()
-        # Wypełnij listę tylko nadchodzącymi sesjami, które NIE SĄ pełne
-        # i nie są tą samą sesją, z której przenosimy
         self.new_session.choices = [
             (s.id, f"{s.title} ({s.date}) - {s.current_participants}/{s.max_participants} miejsc")
             for s in TrainingSession.query.filter(
@@ -201,11 +189,9 @@ class MoveBookingForm(FlaskForm):
 
 @login_manager.user_loader
 def load_user(user_id):
-    # Używamy db.session.get() zamiast User.query.get()
     return db.session.get(User, int(user_id))
 
 
-# Dekorator tylko dla roli 'admin' (Menedżer)
 def admin_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -217,7 +203,6 @@ def admin_required(f):
     return decorated_function
 
 
-# Dekorator dla ról 'admin' LUB 'trainer' (Trenerzy i Menedżerowie)
 def trainer_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -229,7 +214,7 @@ def trainer_required(f):
     return decorated_function
 
 
-# === LISTY ĆWICZEŃ (STARY SYSTEM) ===
+# === LISTY ĆWICZEŃ ===
 EXERCISE_SUGGESTIONS = [
     "Przysiady ze sztangą", "Przysiady bułgarskie", "Prostowanie nóg w siadzie", "Martwy ciąg",
     "Wiosłowanie hantlami", "Ściąganie drążka wyciągu", "Podciąganie na drążku", "Wyciskanie sztangi leżąc",
@@ -247,7 +232,7 @@ EXERCISE_TO_BODY_PART = {
     "Burpees": "Całe ciało", "Dipy na poręczach": "Triceps"
 }
 
-#rrrrr
+
 # === TRASY PUBLICZNE ===
 
 @app.route("/")
@@ -300,7 +285,6 @@ def register():
             flash("Ta nazwa użytkownika jest już zajęta. Wybierz inną.", "danger")
             return redirect(url_for("register"))
 
-        # Nowi użytkownicy są domyślnie 'user'
         user = User(username=form.username.data, email=form.email.data, role='user')
         user.set_password(form.password.data)
         db.session.add(user)
@@ -317,7 +301,6 @@ def login():
         user = User.query.filter_by(email=form.email.data).first()
         if user and user.check_password(form.password.data):
             login_user(user)
-            # Przekierowanie na podstawie roli
             if user.is_admin:
                 return redirect(url_for("admin_dashboard"))
             if user.is_trainer:
@@ -334,18 +317,16 @@ def logout():
     return redirect(url_for("index"))
 
 
-# === TRASY UŻYTKOWNIKA (STARY DZIENNICZEK + NOWY BOOKING) ===
+# === TRASY UŻYTKOWNIKA ===
 
 @app.route("/dashboard")
 @login_required
 def dashboard():
-    # Menedżer i Trener są automatycznie wysyłani do swoich paneli
     if current_user.is_admin:
         return redirect(url_for('admin_dashboard'))
     if current_user.is_trainer:
         return redirect(url_for('trainer_dashboard'))
 
-    # To jest panel zwykłego użytkownika
     workouts = Workout.query.filter_by(user_id=current_user.id).all()
     return render_template("dashboard.html", user=current_user, workouts=workouts)
 
@@ -410,7 +391,6 @@ def view_workout(workout_id):
         flash("Nie znaleziono takiego treningu.", "danger")
         return redirect(url_for('workout_history'))
 
-    # Admin/Trener może zobaczyć wszystko, użytkownik tylko swoje
     if not (current_user.is_admin or current_user.is_trainer) and workout.user_id != current_user.id:
         flash("Nie masz uprawnień do wyświetlenia tego treningu.", "danger")
         return redirect(url_for('dashboard'))
@@ -419,7 +399,7 @@ def view_workout(workout_id):
     return render_template("view_workout.html", workout=workout, exercises=exercises)
 
 
-# === NOWE TRASY SYSTEMU REZERWACJI (UŻYTKOWNIK) ===
+# === NOWE TRASY SYSTEMU REZERWACJI (Z GRUPOWANIEM CYKLI) ===
 
 @app.route("/booking", methods=["GET"])
 @login_required
@@ -427,19 +407,44 @@ def booking():
     today = date.today()
     user_booked_session_ids = {booking.session_id for booking in current_user.bookings.all()}
 
-    sessions_grupowe = TrainingSession.query.filter(
-        TrainingSession.date >= today,
-        TrainingSession.session_type == 'Grupowy'
+    # Pobierz WSZYSTKIE przyszłe sesje
+    all_sessions = TrainingSession.query.filter(
+        TrainingSession.date >= today
     ).order_by(TrainingSession.date, TrainingSession.start_time).all()
 
-    sessions_indywidualne = TrainingSession.query.filter(
-        TrainingSession.date >= today,
-        TrainingSession.session_type == 'Indywidualny'
-    ).order_by(TrainingSession.date, TrainingSession.start_time).all()
+    # Logika grupowania:
+    # Jeśli sesja ma recurrence_group_id, pokaż ją tylko RAZ (pierwsze wystąpienie)
+    # ale przekaż listę wszystkich wystąpień w tej grupie.
+
+    grouped_items_grupowe = []
+    grouped_items_indywidualne = []
+
+    seen_groups = set()  # Zestaw ID grup, które już przetworzyliśmy
+
+    for session in all_sessions:
+        item_data = {'type': 'single', 'session': session}
+
+        # Jeśli to sesja cykliczna
+        if session.recurrence_group_id:
+            if session.recurrence_group_id in seen_groups:
+                continue  # Już dodaliśmy "reprezentanta" tej grupy, pomijamy
+
+            seen_groups.add(session.recurrence_group_id)
+            item_data['type'] = 'recurring_group'
+
+            # Znajdź wszystkie sesje z tej grupy (przyszłe)
+            group_sessions = [s for s in all_sessions if s.recurrence_group_id == session.recurrence_group_id]
+            item_data['group_sessions'] = group_sessions
+
+        # Podział na typy (Grupowy/Indywidualny)
+        if session.session_type == 'Grupowy':
+            grouped_items_grupowe.append(item_data)
+        else:
+            grouped_items_indywidualne.append(item_data)
 
     return render_template("booking.html",
-                           sessions_grupowe=sessions_grupowe,
-                           sessions_indywidualne=sessions_indywidualne,
+                           items_grupowe=grouped_items_grupowe,
+                           items_indywidualne=grouped_items_indywidualne,
                            user_booked_session_ids=user_booked_session_ids,
                            today=today)
 
@@ -448,49 +453,81 @@ def booking():
 @login_required
 def book_session():
     session_id = request.form.get('session_id')
+    book_recurring = request.form.get('book_recurring')  # 'yes' jeśli zapis na grupę
+
     session_to_book = db.session.get(TrainingSession, session_id)
 
     if not session_to_book:
         flash("Nie znaleziono takich zajęć.", "danger")
         return redirect(url_for('booking'))
 
-    existing_booking = Booking.query.filter_by(user_id=current_user.id, session_id=session_id).first()
-    if existing_booking:
-        flash("Jesteś już zapisany/a na te zajęcia.", "info")
-        return redirect(url_for('booking'))
-
-    if session_to_book.is_full:
-        flash("Niestety, na te zajęcia nie ma już wolnych miejsc.", "danger")
-        return redirect(url_for('booking'))
-
     if session_to_book.trainer_id == current_user.id:
         flash("Nie możesz zapisać się na własne zajęcia.", "warning")
         return redirect(url_for('booking'))
 
-    try:
-        new_booking = Booking(user_id=current_user.id, session_id=session_id)
-        db.session.add(new_booking)
-        db.session.commit()
-        flash(f"Pomyślnie zapisano na zajęcia: {session_to_book.title}!", "success")
-    except Exception as e:
-        db.session.rollback()
-        flash(f"Wystąpił błąd podczas rezerwacji: {e}", "danger")
+    # --- ZAPIS NA CAŁY CYKL (GRUPĘ) ---
+    if book_recurring == 'yes' and session_to_book.recurrence_group_id:
+        # Znajdź wszystkie PRZYSZŁE zajęcia z tej grupy
+        future_sessions = TrainingSession.query.filter(
+            TrainingSession.recurrence_group_id == session_to_book.recurrence_group_id,
+            TrainingSession.date >= date.today()
+        ).all()
+
+        count_success = 0
+
+        for session in future_sessions:
+            # Sprawdź, czy już zapisany
+            existing = Booking.query.filter_by(user_id=current_user.id, session_id=session.id).first()
+            if existing:
+                continue  # Już zapisany, pomijamy
+
+            # Sprawdź, czy pełne
+            if session.is_full:
+                continue  # Pełne, pomijamy
+
+            # Zapisz
+            new_booking = Booking(user_id=current_user.id, session_id=session.id)
+            db.session.add(new_booking)
+            count_success += 1
+
+        try:
+            db.session.commit()
+            flash(f"Zapisano na {count_success} zajęć z cyklu.", "success")
+        except Exception as e:
+            db.session.rollback()
+            flash(f"Wystąpił błąd podczas zapisu grupowego: {e}", "danger")
+
+    else:
+        # --- ZAPIS POJEDYNCZY ---
+        existing_booking = Booking.query.filter_by(user_id=current_user.id, session_id=session_id).first()
+        if existing_booking:
+            flash("Jesteś już zapisany/a na te zajęcia.", "info")
+            return redirect(url_for('booking'))
+
+        if session_to_book.is_full:
+            flash("Niestety, na te zajęcia nie ma już wolnych miejsc.", "danger")
+            return redirect(url_for('booking'))
+
+        try:
+            new_booking = Booking(user_id=current_user.id, session_id=session_id)
+            db.session.add(new_booking)
+            db.session.commit()
+            flash(f"Pomyślnie zapisano na zajęcia: {session_to_book.title}!", "success")
+        except Exception as e:
+            db.session.rollback()
+            flash(f"Wystąpił błąd podczas rezerwacji: {e}", "danger")
 
     return redirect(url_for('booking'))
 
 
-# === NOWA TRASA: WYPISZ SIĘ Z ZAJĘĆ ===
 @app.route("/unbook_session", methods=["POST"])
 @login_required
 def unbook_session():
     session_id = request.form.get('session_id')
-
-    # Znajdź rezerwację tego użytkownika na te konkretne zajęcia
     booking = Booking.query.filter_by(user_id=current_user.id, session_id=session_id).first()
 
     if booking:
         try:
-            # Sprawdzenie, czy zajęcia już się nie odbyły (opcjonalne, ale dobre)
             if booking.session.date < date.today():
                 flash("Nie możesz wypisać się z zajęć, które już się odbyły.", "warning")
                 return redirect(url_for('booking'))
@@ -500,14 +537,11 @@ def unbook_session():
             flash("Pomyślnie wypisano z zajęć.", "success")
         except Exception as e:
             db.session.rollback()
-            flash(f"Wystąpił błąd podczas wypisywania: {e}", "danger")
+            flash(f"Wystąpił błąd: {e}", "danger")
     else:
-        flash("Nie znaleziono takiej rezerwacji. Być może już się wypisałeś.", "info")
+        flash("Nie znaleziono rezerwacji.", "info")
 
     return redirect(url_for('booking'))
-
-
-# === KONIEC NOWEJ TRASY ===
 
 
 @app.route("/trainer_profile/<int:trainer_id>")
@@ -520,7 +554,7 @@ def trainer_profile(trainer_id):
     return render_template("trainer_profile.html", trainer=trainer)
 
 
-# === TRASY MENEDŻERA (ADMIN) ===
+# === TRASY MENEDŻERA I TRENERA ===
 
 @app.route("/admin")
 @login_required
@@ -542,13 +576,11 @@ def admin_edit_user(user_id):
         else:
             user_to_edit.role = new_role
             db.session.commit()
-            flash(f"Zaktualizowano rolę użytkownika {user_to_edit.username} na {new_role}.", "success")
+            flash(f"Zaktualizowano rolę: {new_role}", "success")
     else:
-        flash("Wystąpił błąd podczas edycji użytkownika.", "danger")
+        flash("Wystąpił błąd.", "danger")
     return redirect(url_for('admin_dashboard'))
 
-
-# === TRASY TRENERA (I MENEDŻERA) ===
 
 @app.route("/trainer")
 @login_required
@@ -566,7 +598,6 @@ def trainer_dashboard():
 @trainer_required
 def create_session():
     form = SessionForm()
-
     if not current_user.is_admin:
         form.trainer.data = current_user.id
 
@@ -594,9 +625,7 @@ def create_session():
                         recurrence_group_id=group_id
                     )
                     db.session.add(new_session)
-
-                flash(f"Pomyślnie utworzono {num_weeks} cyklicznych zajęć: {form.title.data}", "success")
-
+                flash(f"Utworzono {num_weeks} cyklicznych zajęć.", "success")
             else:
                 new_session = TrainingSession(
                     title=form.title.data,
@@ -610,18 +639,16 @@ def create_session():
                     trainer_id=trainer_id_to_assign
                 )
                 db.session.add(new_session)
-                flash(f"Pomyślnie utworzono nowe zajęcia: {form.title.data}", "success")
+                flash("Utworzono nowe zajęcia.", "success")
 
             db.session.commit()
             return redirect(url_for('trainer_dashboard'))
-
         except Exception as e:
             db.session.rollback()
-            flash(f"Wystąpił błąd podczas tworzenia zajęć: {e}", "danger")
+            flash(f"Wystąpił błąd: {e}", "danger")
 
     if not form.date.data:
         form.date.data = date.today()
-
     return render_template("create_session.html", form=form, title="Stwórz Nowe Zajęcia")
 
 
@@ -631,13 +658,11 @@ def create_session():
 def manage_session(session_id):
     session = db.session.get(TrainingSession, session_id)
     if not session:
-        flash("Nie znaleziono takich zajęć.", "danger")
+        flash("Nie znaleziono zajęć.", "danger")
         return redirect(url_for('trainer_dashboard'))
-
     if not current_user.is_admin and session.trainer_id != current_user.id:
-        flash("Nie masz uprawnień do zarządzania tymi zajęciami.", "danger")
+        flash("Brak uprawnień.", "danger")
         return redirect(url_for('trainer_dashboard'))
-
     return render_template("manage_session.html", session=session)
 
 
@@ -647,22 +672,15 @@ def manage_session(session_id):
 def cancel_booking(booking_id):
     booking = db.session.get(Booking, booking_id)
     if not booking:
-        flash("Nie znaleziono takiej rezerwacji.", "danger")
         return redirect(url_for('trainer_dashboard'))
 
     session_id = booking.session.id
     if not current_user.is_admin and booking.session.trainer_id != current_user.id:
-        flash("Nie masz uprawnień do anulowania tej rezerwacji.", "danger")
         return redirect(url_for('manage_session', session_id=session_id))
 
-    try:
-        db.session.delete(booking)
-        db.session.commit()
-        flash(f"Pomyślnie anulowano rezerwację dla {booking.user.username}.", "success")
-    except Exception as e:
-        db.session.rollback()
-        flash(f"Wystąpił błąd podczas anulowania: {e}", "danger")
-
+    db.session.delete(booking)
+    db.session.commit()
+    flash("Anulowano rezerwację.", "success")
     return redirect(url_for('manage_session', session_id=session_id))
 
 
@@ -672,86 +690,56 @@ def cancel_booking(booking_id):
 def move_booking(booking_id):
     booking_to_move = db.session.get(Booking, booking_id)
     if not booking_to_move:
-        flash("Nie znaleziono takiej rezerwacji.", "danger")
         return redirect(url_for('trainer_dashboard'))
 
     session = booking_to_move.session
     user = booking_to_move.user
 
     if not current_user.is_admin and session.trainer_id != current_user.id:
-        flash("Nie masz uprawnień do zarządzania tą rezerwacją.", "danger")
         return redirect(url_for('trainer_dashboard'))
 
     form = MoveBookingForm(original_session_id=session.id)
 
     if form.validate_on_submit():
-        new_session_id = form.new_session.data
-        new_session = db.session.get(TrainingSession, new_session_id)
-
-        if not new_session:
-            flash("Wybrano nieprawidłowe zajęcia docelowe.", "danger")
-        elif new_session.is_full:
-            flash("Nowe zajęcia są już pełne!", "danger")
-        elif Booking.query.filter_by(user_id=user.id, session_id=new_session_id).first():
-            flash(f"Użytkownik {user.username} jest już zapisany na wybrane zajęcia.", "warning")
+        new_session = db.session.get(TrainingSession, form.new_session.data)
+        if new_session and not new_session.is_full:
+            booking_to_move.session_id = new_session.id
+            db.session.commit()
+            flash("Przeniesiono rezerwację.", "success")
+            return redirect(url_for('manage_session', session_id=session.id))
         else:
-            try:
-                booking_to_move.session_id = new_session_id
-                db.session.commit()
-                flash(f"Pomyślnie przeniesiono {user.username} na zajęcia {new_session.title}.", "success")
-                return redirect(url_for('manage_session', session_id=session.id))
-            except Exception as e:
-                db.session.rollback()
-                flash(f"Wystąpił błąd: {e}", "danger")
+            flash("Błąd przenoszenia.", "danger")
 
     return render_template("move_booking.html", form=form, booking=booking_to_move, user=user, session=session)
 
 
-# === KOMENDY CLI ===
-
+# === CLI ===
 @app.cli.command("create-accounts")
 def create_accounts():
-    """Tworzy konto Menedżera i 3 konta Trenerów."""
     try:
-        admin_email = 'admin@bodylab.pl'
-        admin_pass = 'admin123'
-        admin_username = 'Menedżer'
+        admin = User.query.filter_by(email='admin@bodylab.pl').first()
+        if not admin:
+            admin = User(username='Menedżer', email='admin@bodylab.pl', role='admin')
+            admin.set_password('admin123')
+            db.session.add(admin)
+            print("Stworzono admina.")
 
-        admin_user = User.query.filter_by(email=admin_email).first()
-        if not admin_user:
-            admin_user = User(username=admin_username, email=admin_email, role='admin')
-            admin_user.set_password(admin_pass)
-            db.session.add(admin_user)
-            print(f"Stworzono MENEDŻERA: {admin_email}")
-
-        TRENERZY_DO_STWORZENIA = [
-            {"imie": "Arina Dziuba", "email": "arina@bodylab.pl", "haslo": "trener123"},
-            {"imie": "Laura Iwanowska", "email": "laura@bodylab.pl", "haslo": "trener123"},
-            {"imie": "Wiktoria Durtan", "email": "wiktoria@bodylab.pl", "haslo": "trener123"}
+        trainers = [
+            {"imie": "Arina Dziuba", "email": "arina@bodylab.pl"},
+            {"imie": "Laura Iwanowska", "email": "laura@bodylab.pl"},
+            {"imie": "Wiktoria Durtan", "email": "wiktoria@bodylab.pl"}
         ]
-
-        print("\n--- Tworzenie kont trenerów ---")
-
-        for dane in TRENERZY_DO_STWORZENIA:
-            name = dane["imie"]
-            email = dane["email"]
-            password = dane["haslo"]
-
-            trainer = User.query.filter_by(email=email).first()
-            if not trainer:
-                trainer = User(username=name, email=email, role='trainer')
-                trainer.set_password(password)
-                db.session.add(trainer)
-                print(f"Stworzono TRENERA: {name} ({email})")
-            else:
-                print(f"INFO: Trener z adresem {email} już istnieje. Pomijam.")
+        for t in trainers:
+            if not User.query.filter_by(email=t['email']).first():
+                tr = User(username=t['imie'], email=t['email'], role='trainer')
+                tr.set_password('trener123')
+                db.session.add(tr)
+                print(f"Stworzono trenera: {t['imie']}")
 
         db.session.commit()
-        print("\nGotowe! Wszystkie konta zostały utworzone.")
-
+        print("Gotowe.")
     except Exception as e:
-        db.session.rollback()
-        print(f"\n--- WYSTĄPIŁ KRYTYCZNY BŁĄD: {e} ---")
+        print(e)
 
 
 if __name__ == "__main__":
