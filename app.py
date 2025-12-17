@@ -384,6 +384,53 @@ def workout_history():
 
 
 @app.route("/workout/<int:workout_id>")
+@app.route("/delete_workout/<int:workout_id>", methods=["POST"])
+@login_required
+def delete_workout(workout_id):
+    workout = db.session.get(Workout, workout_id)
+
+    if not workout:
+        flash("Nie znaleziono treningu.", "danger")
+        return redirect(url_for('workout_history'))
+
+    # Sprawdź uprawnienia - tylko właściciel lub admin może usunąć
+    if not current_user.is_admin and workout.user_id != current_user.id:
+        flash("Nie masz uprawnień do usunięcia tego treningu.", "danger")
+        return redirect(url_for('workout_history'))
+
+    try:
+        workout_date = workout.date
+        # Usuń powiązane ćwiczenia (cascade powinno to zrobić automatycznie, ale dla pewności)
+        Exercise.query.filter_by(workout_id=workout.id).delete()
+        db.session.delete(workout)
+        db.session.commit()
+        flash(f"Usunięto trening z dnia {workout_date}.", "success")
+    except Exception as e:
+        db.session.rollback()
+        flash(f"Wystąpił błąd podczas usuwania: {e}", "danger")
+
+    return redirect(url_for('workout_history'))
+
+
+@app.route("/delete_all_workouts", methods=["POST"])
+@login_required
+def delete_all_workouts():
+    """Usuwa wszystkie treningi użytkownika"""
+    try:
+        # Usuń wszystkie ćwiczenia powiązane z treningami użytkownika
+        workout_ids = [w.id for w in Workout.query.filter_by(user_id=current_user.id).all()]
+        Exercise.query.filter(Exercise.workout_id.in_(workout_ids)).delete(synchronize_session=False)
+
+        # Usuń wszystkie treningi użytkownika
+        count = Workout.query.filter_by(user_id=current_user.id).delete()
+        db.session.commit()
+
+        flash(f"Usunięto {count} treningów z historii.", "success")
+    except Exception as e:
+        db.session.rollback()
+        flash(f"Wystąpił błąd podczas usuwania: {e}", "danger")
+
+    return redirect(url_for('workout_history'))
 @login_required
 def view_workout(workout_id):
     workout = db.session.get(Workout, workout_id)
@@ -712,6 +759,80 @@ def move_booking(booking_id):
 
     return render_template("move_booking.html", form=form, booking=booking_to_move, user=user, session=session)
 
+
+@app.route("/delete_session/<int:session_id>", methods=["POST"])
+@login_required
+@trainer_required
+def delete_session(session_id):
+    session = db.session.get(TrainingSession, session_id)
+
+    if not session:
+        flash("Nie znaleziono zajęć.", "danger")
+        return redirect(url_for('trainer_dashboard'))
+
+    # Sprawdź uprawnienia
+    if not current_user.is_admin and session.trainer_id != current_user.id:
+        flash("Brak uprawnień do usunięcia tych zajęć.", "danger")
+        return redirect(url_for('trainer_dashboard'))
+
+    # Sprawdź czy są rezerwacje
+    if session.bookings.count() > 0:
+        flash("Nie można usunąć zajęć z aktywnymi rezerwacjami. Najpierw anuluj wszystkie rezerwacje.", "warning")
+        return redirect(url_for('manage_session', session_id=session_id))
+
+    try:
+        session_title = session.title
+        session_date = session.date.strftime('%Y-%m-%d')
+        db.session.delete(session)
+        db.session.commit()
+        flash(f"Usunięto zajęcia: {session_title} ({session_date})", "success")
+    except Exception as e:
+        db.session.rollback()
+        flash(f"Wystąpił błąd podczas usuwania: {e}", "danger")
+
+    return redirect(url_for('trainer_dashboard'))
+
+
+@app.route("/delete_recurring_group/<group_id>", methods=["POST"])
+@login_required
+@trainer_required
+def delete_recurring_group(group_id):
+    """Usuwa wszystkie przyszłe zajęcia z grupy cyklicznej"""
+    sessions = TrainingSession.query.filter(
+        TrainingSession.recurrence_group_id == group_id,
+        TrainingSession.date >= date.today()
+    ).all()
+
+    if not sessions:
+        flash("Nie znaleziono zajęć cyklicznych.", "danger")
+        return redirect(url_for('trainer_dashboard'))
+
+    # Sprawdź uprawnienia (sprawdzamy pierwszą sesję)
+    if not current_user.is_admin and sessions[0].trainer_id != current_user.id:
+        flash("Brak uprawnień.", "danger")
+        return redirect(url_for('trainer_dashboard'))
+
+    # Sprawdź czy któraś sesja ma rezerwacje
+    sessions_with_bookings = [s for s in sessions if s.bookings.count() > 0]
+    if sessions_with_bookings:
+        dates_str = ", ".join([s.date.strftime('%Y-%m-%d') for s in sessions_with_bookings[:3]])
+        flash(
+            f"Nie można usunąć {len(sessions_with_bookings)} zajęć z grupy, które mają aktywne rezerwacje (np. {dates_str}). Najpierw anuluj rezerwacje.",
+            "warning")
+        return redirect(url_for('trainer_dashboard'))
+
+    try:
+        count = len(sessions)
+        title = sessions[0].title
+        for session in sessions:
+            db.session.delete(session)
+        db.session.commit()
+        flash(f"Usunięto {count} zajęć z cyklu '{title}'.", "success")
+    except Exception as e:
+        db.session.rollback()
+        flash(f"Wystąpił błąd: {e}", "danger")
+
+    return redirect(url_for('trainer_dashboard'))
 
 # === CLI ===
 @app.cli.command("create-accounts")

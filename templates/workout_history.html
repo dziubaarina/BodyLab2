@@ -1,20 +1,103 @@
 {% extends "base.html" %}
 
-{% block content %}
-    <h1>Historia Treningów</h1>
-    <ul>
-    {% for workout in workouts %}
-        <li>
-            <h2>Trening z dnia {{ workout.date }}</h2>
-            <p><strong>Godzina:</strong> {{ workout.start_time }}</p>
-            <p><strong>Czas trwania:</strong> {{ workout.duration }} min</p>
-            <p><strong>Notatki:</strong> {{ workout.notes or "Brak" }}</p>
+{% block title %}Historia Treningów{% endblock %}
 
-            <h3>Ćwiczenia:</h3>
-            {% for exercise in workout.exercises %}
-                <p>{{ exercise.name }} ({{ exercise.body_part }}) - {{ exercise.sets }}x{{ exercise.reps }}</p>
-            {% endfor %}
-        </li>
-    {% endfor %}
-    </ul>
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h2">Historia Treningów</h1>
+    <div class="d-flex gap-2">
+        <a href="{{ url_for('add_workout') }}" class="btn btn-success">
+            <i class="fas fa-plus me-1"></i> Dodaj Trening
+        </a>
+        {% if workouts %}
+        <form action="{{ url_for('delete_all_workouts') }}" method="POST" class="d-inline"
+              onsubmit="return confirm('Czy na pewno chcesz usunąć WSZYSTKIE treningi z historii? Tej operacji nie można cofnąć!');">
+            <button type="submit" class="btn btn-outline-danger">
+                <i class="fas fa-trash-alt me-1"></i> Usuń Całą Historię
+            </button>
+        </form>
+        {% endif %}
+    </div>
+</div>
+
+{% if workouts %}
+    <div class="row">
+        {% for workout in workouts %}
+        <div class="col-md-6 col-lg-4 mb-4">
+            <div class="card h-100 shadow-sm">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <span>
+                        <i class="fas fa-dumbbell me-2"></i>{{ workout.date }}
+                    </span>
+                    <form action="{{ url_for('delete_workout', workout_id=workout.id) }}" method="POST" class="d-inline"
+                          onsubmit="return confirm('Czy na pewno chcesz usunąć ten trening?');">
+                        <button type="submit" class="btn btn-sm btn-outline-light" title="Usuń trening">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    </form>
+                </div>
+                <div class="card-body">
+                    <p class="mb-2">
+                        <strong><i class="fas fa-clock me-1"></i> Godzina:</strong> {{ workout.start_time }}
+                    </p>
+                    <p class="mb-2">
+                        <strong><i class="fas fa-hourglass-half me-1"></i> Czas trwania:</strong> {{ workout.duration }} min
+                    </p>
+                    {% if workout.notes %}
+                    <p class="mb-3">
+                        <strong><i class="fas fa-sticky-note me-1"></i> Notatki:</strong><br>
+                        <span class="text-muted">{{ workout.notes }}</span>
+                    </p>
+                    {% endif %}
+
+                    <h6 class="border-top pt-3 mb-2">
+                        <i class="fas fa-list me-1"></i> Ćwiczenia:
+                    </h6>
+                    {% if workout.exercises %}
+                    <ul class="list-unstyled mb-0">
+                        {% for exercise in workout.exercises %}
+                        <li class="mb-2 ps-3">
+                            <i class="fas fa-check-circle text-success me-1"></i>
+                            <strong>{{ exercise.name }}</strong>
+                            <br>
+                            <small class="text-muted ps-4">
+                                {{ exercise.body_part }} • {{ exercise.sets }}×{{ exercise.reps }}
+                            </small>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <p class="text-muted small mb-0 ps-3">Brak ćwiczeń</p>
+                    {% endif %}
+                </div>
+                <div class="card-footer bg-light">
+                    <a href="{{ url_for('view_workout', workout_id=workout.id) }}" class="btn btn-sm btn-outline-primary w-100">
+                        <i class="fas fa-eye me-1"></i> Zobacz Szczegóły
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+{% else %}
+    <div class="alert alert-info text-center">
+        <i class="fas fa-info-circle me-2"></i>
+        Nie masz jeszcze żadnych treningów w historii.
+        <a href="{{ url_for('add_workout') }}" class="alert-link">Dodaj swój pierwszy trening!</a>
+    </div>
+{% endif %}
+
+<style>
+    .card {
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
+    }
+    .card-header {
+        font-weight: 600;
+    }
+</style>
+
 {% endblock %}
