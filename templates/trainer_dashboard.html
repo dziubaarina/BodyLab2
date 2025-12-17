@@ -23,7 +23,12 @@
         color: #f8f9fa !important;
     }
     .progress-bar {
-        min-width: 3.5em; /* Minimalna szerokość, aby tekst był widoczny */
+        min-width: 3.5em;
+    }
+    .btn-group-action {
+        display: flex;
+        gap: 5px;
+        flex-wrap: wrap;
     }
 </style>
 
@@ -55,49 +60,80 @@
         </thead>
         <tbody>
             {% if my_sessions %}
+                {% set processed_groups = [] %}
                 {% for session in my_sessions %}
-                    <tr>
-                        <td>{{ session.date.strftime('%Y-%m-%d') }}</td>
-                        <td>{{ session.start_time.strftime('%H:%M') }}</td>
-                        <td>
-                            {{ session.title }}
-                            <!-- NOWA IKONA CYKLICZNOŚCI -->
-                            {% if session.recurrence_group_id %}
-                                <i class="fas fa-sync-alt text-muted ms-1" title="Zajęcia cykliczne"></i>
-                            {% endif %}
-                        </td>
-                        <td>
-                            <span class="badge {% if session.session_type == 'Grupowy' %}bg-primary{% else %}bg-success{% endif %}">
-                                {{ session.session_type }}
-                            </span>
-                        </td>
-
-                        {% if current_user.is_admin %}
-                            <td>{{ session.trainer.username }}</td>
+                    {% if session.recurrence_group_id and session.recurrence_group_id in processed_groups %}
+                        {# Pomijamy duplikaty grup cyklicznych #}
+                    {% else %}
+                        {% if session.recurrence_group_id %}
+                            {% set _ = processed_groups.append(session.recurrence_group_id) %}
                         {% endif %}
 
-                        <td>
-                            {% set percent = (session.current_participants / session.max_participants) * 100 %}
-                            {% set is_full = session.is_full %}
-                            {% set bg_color = 'bg-danger' if is_full else ('bg-warning' if percent > 70 else 'bg-success') %}
-                            {% set text_color = 'text-light' if is_full or percent <= 70 else 'text-dark' %}
-
-                            <div class="progress" title="{{ session.current_participants }} / {{ session.max_participants }}">
-                                <div class="progress-bar {{ bg_color }}" role="progressbar" style="width: {{ percent }}%;"
-                                     aria-valuenow="{{ session.current_participants }}" aria-valuemin="0" aria-valuemax="{{ session.max_participants }}">
-                                </div>
-                                <span class="progress-bar-text {{ text_color }}">
-                                    {{ session.current_participants }} / {{ session.max_participants }}
+                        <tr>
+                            <td>{{ session.date.strftime('%Y-%m-%d') }}</td>
+                            <td>{{ session.start_time.strftime('%H:%M') }}</td>
+                            <td>
+                                {{ session.title }}
+                                {% if session.recurrence_group_id %}
+                                    <i class="fas fa-sync-alt text-primary ms-1" title="Zajęcia cykliczne"></i>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="badge {% if session.session_type == 'Grupowy' %}bg-primary{% else %}bg-success{% endif %}">
+                                    {{ session.session_type }}
                                 </span>
-                            </div>
-                        </td>
-                        <td>{{ session.price }} zł</td>
-                        <td>
-                            <a href="{{ url_for('manage_session', session_id=session.id) }}" class="btn btn-primary btn-sm" title="Zarządzaj uczestnikami">
-                                <i class="fas fa-users"></i> Zarządzaj
-                            </a>
-                        </td>
-                    </tr>
+                            </td>
+
+                            {% if current_user.is_admin %}
+                                <td>{{ session.trainer.username }}</td>
+                            {% endif %}
+
+                            <td>
+                                {% set percent = (session.current_participants / session.max_participants) * 100 %}
+                                {% set is_full = session.is_full %}
+                                {% set bg_color = 'bg-danger' if is_full else ('bg-warning' if percent > 70 else 'bg-success') %}
+                                {% set text_color = 'text-light' if is_full or percent <= 70 else 'text-dark' %}
+
+                                <div class="progress" title="{{ session.current_participants }} / {{ session.max_participants }}">
+                                    <div class="progress-bar {{ bg_color }}" role="progressbar" style="width: {{ percent }}%;"
+                                         aria-valuenow="{{ session.current_participants }}" aria-valuemin="0" aria-valuemax="{{ session.max_participants }}">
+                                    </div>
+                                    <span class="progress-bar-text {{ text_color }}">
+                                        {{ session.current_participants }} / {{ session.max_participants }}
+                                    </span>
+                                </div>
+                            </td>
+                            <td>{{ session.price }} zł</td>
+                            <td>
+                                <div class="btn-group-action">
+                                    <a href="{{ url_for('manage_session', session_id=session.id) }}"
+                                       class="btn btn-primary btn-sm" title="Zarządzaj uczestnikami">
+                                        <i class="fas fa-users"></i> Zarządzaj
+                                    </a>
+
+                                    {% if session.recurrence_group_id %}
+                                        {# Przycisk usuwania całej grupy cyklicznej #}
+                                        <form action="{{ url_for('delete_recurring_group', group_id=session.recurrence_group_id) }}"
+                                              method="POST" class="d-inline"
+                                              onsubmit="return confirm('Czy na pewno chcesz usunąć WSZYSTKIE przyszłe zajęcia z tego cyklu?');">
+                                            <button type="submit" class="btn btn-danger btn-sm" title="Usuń cały cykl">
+                                                <i class="fas fa-trash-alt"></i> Usuń Cykl
+                                            </button>
+                                        </form>
+                                    {% else %}
+                                        {# Przycisk usuwania pojedynczych zajęć #}
+                                        <form action="{{ url_for('delete_session', session_id=session.id) }}"
+                                              method="POST" class="d-inline"
+                                              onsubmit="return confirm('Czy na pewno chcesz usunąć te zajęcia?');">
+                                            <button type="submit" class="btn btn-danger btn-sm" title="Usuń zajęcia">
+                                                <i class="fas fa-trash-alt"></i> Usuń
+                                            </button>
+                                        </form>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                    {% endif %}
                 {% endfor %}
             {% else %}
                 <tr>
@@ -111,31 +147,3 @@
 </div>
 
 {% endblock %}
-```
-
----
-
-### Plik 4: `instrukcja_migracji.md` (Bardzo Ważne!)
-
-Tym razem **NIE MUSISZ** resetować bazy danych. Musisz tylko wykonać migrację, aby dodać nową kolumnę `recurrence_group_id`.
-
-```markdown
-# Instrukcja Migracji (BEZ RESETU)
-
-1.  **Zatrzymaj aplikację** (w terminalu naciśnij `Ctrl + C`).
-
-2.  **Wygeneruj nowy skrypt migracji**:
-    (System zobaczy, że dodałeś `recurrence_group_id` w `app.py`)
-    ```bash
-    flask db migrate -m "Dodanie ID grupy dla zajec cyklicznych"
-    ```
-
-3.  **Zastosuj migrację do bazy danych**:
-    (To jest najważniejszy krok. Doda nową kolumnę.)
-    ```bash
-    flask db upgrade
-    ```
-
-4.  **Uruchom aplikację**:
-    ```bash
-    flask run

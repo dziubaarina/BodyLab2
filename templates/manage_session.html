@@ -14,13 +14,51 @@
 </div>
 
 <div class="card mb-4">
-    <div class="card-header">
-        Szczegóły Zajęć
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span>Szczegóły Zajęć</span>
+        {% if session.recurrence_group_id %}
+            <span class="badge bg-primary">
+                <i class="fas fa-sync-alt me-1"></i>Zajęcia Cykliczne
+            </span>
+        {% endif %}
     </div>
     <div class="card-body">
         <p class="mb-1"><strong>Data i Godzina:</strong> {{ session.date.strftime('%Y-%m-%d') }} o {{ session.start_time.strftime('%H:%M') }}</p>
         <p class="mb-1"><strong>Prowadzący:</strong> {{ session.trainer.username }}</p>
-        <p class="mb-0"><strong>Zapisani:</strong> {{ session.current_participants }} / {{ session.max_participants }}</p>
+        <p class="mb-1"><strong>Typ:</strong>
+            <span class="badge {% if session.session_type == 'Grupowy' %}bg-primary{% else %}bg-success{% endif %}">
+                {{ session.session_type }}
+            </span>
+        </p>
+        <p class="mb-3"><strong>Zapisani:</strong> {{ session.current_participants }} / {{ session.max_participants }}</p>
+
+        <div class="d-flex gap-2">
+            {% if session.bookings.count() == 0 %}
+                {# Można usunąć tylko jeśli nie ma rezerwacji #}
+                {% if session.recurrence_group_id %}
+                    <form action="{{ url_for('delete_recurring_group', group_id=session.recurrence_group_id) }}"
+                          method="POST" class="d-inline"
+                          onsubmit="return confirm('Czy na pewno chcesz usunąć WSZYSTKIE przyszłe zajęcia z tego cyklu?');">
+                        <button type="submit" class="btn btn-danger">
+                            <i class="fas fa-trash-alt me-1"></i> Usuń Cały Cykl
+                        </button>
+                    </form>
+                {% else %}
+                    <form action="{{ url_for('delete_session', session_id=session.id) }}"
+                          method="POST" class="d-inline"
+                          onsubmit="return confirm('Czy na pewno chcesz usunąć te zajęcia?');">
+                        <button type="submit" class="btn btn-danger">
+                            <i class="fas fa-trash-alt me-1"></i> Usuń Zajęcia
+                        </button>
+                    </form>
+                {% endif %}
+            {% else %}
+                <button class="btn btn-secondary" disabled title="Nie można usunąć zajęć z aktywnymi rezerwacjami">
+                    <i class="fas fa-trash-alt me-1"></i> Usuń (Niedostępne)
+                </button>
+                <small class="text-muted align-self-center">Najpierw anuluj wszystkie rezerwacje</small>
+            {% endif %}
+        </div>
     </div>
 </div>
 
@@ -54,7 +92,7 @@
 
                     <!-- Przycisk Przenieś -->
                     <a href="{{ url_for('move_booking', booking_id=booking.id) }}" class="btn btn-warning btn-sm">
-                        <i class="fas fa-arrow-right-to-bracket me-1"></i> Przenieś
+                        <i class="fas fa-arrow-right me-1"></i> Przenieś
                     </a>
                 </td>
             </tr>
