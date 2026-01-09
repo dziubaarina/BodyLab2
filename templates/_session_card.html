@@ -4,6 +4,8 @@
     <!-- === WARIANT: GRUPA CYKLICZNA === -->
     {% set main_session = item.session %}
     {% set group_list = item.group_sessions %}
+    {% set user_booked_count = item.user_booked_count %}
+    {% set total_in_group = item.total_in_group %}
 
     <div class="col">
         <div class="card h-100 border-info shadow-sm">
@@ -13,24 +15,69 @@
             </div>
             <div class="card-body">
                 <h5 class="card-title">{{ main_session.title }}</h5>
-                <h6 class="card-subtitle mb-3 text-muted">
+                <h6 class="card-subtitle mb-2 text-muted">
                     <i class="fas fa-user me-1"></i> {{ main_session.trainer.username }}
                 </h6>
+
+                <!-- STATUS ZAPISÓW UŻYTKOWNIKA -->
+                {% if user_booked_count > 0 %}
+                    <div class="alert alert-success py-2 mb-3">
+                        <i class="fas fa-check-circle me-1"></i>
+                        {% if user_booked_count == total_in_group %}
+                            <strong>Zapisany na cały cykl!</strong> ({{ user_booked_count }}/{{ total_in_group }})
+                        {% else %}
+                            <strong>Zapisany na {{ user_booked_count }}/{{ total_in_group }} terminów</strong>
+                        {% endif %}
+                    </div>
+                {% else %}
+                    <div class="alert alert-secondary py-2 mb-3">
+                        <i class="fas fa-info-circle me-1"></i>
+                        Nie jesteś zapisany na żaden termin
+                    </div>
+                {% endif %}
+
                 <p class="card-text small">{{ main_session.description | truncate(60) }}</p>
 
+                <div class="mb-2 small text-muted">
+                    <i class="fas fa-calendar-alt me-1"></i>
+                    Od {{ group_list[0].date.strftime('%d.%m') }} do {{ group_list[-1].date.strftime('%d.%m.%Y') }}
+                    <br>
+                    <i class="fas fa-clock me-1"></i>
+                    {{ main_session.start_time.strftime('%H:%M') }} | {{ main_session.duration_minutes }} min
+                    <br>
+                    <i class="fas fa-money-bill-wave me-1"></i>
+                    {{ main_session.price }} zł
+                </div>
+
                 <div class="d-grid gap-2">
-                    <!-- Przycisk zapisu na CAŁĄ grupę (używając ID pierwszej dostępnej sesji) -->
-                    <form action="{{ url_for('book_session') }}" method="POST">
-                        <input type="hidden" name="session_id" value="{{ main_session.id }}">
-                        <input type="hidden" name="book_recurring" value="yes">
-                        <button type="submit" class="btn btn-primary w-100">
-                            <i class="fas fa-layer-group me-1"></i> Zapisz się do grupy (stały udział)
+                    {% if user_booked_count == total_in_group %}
+                        <!-- Użytkownik zapisany na wszystkie - przycisk wypisania -->
+                        <button class="btn btn-success w-100 disabled">
+                            <i class="fas fa-check me-1"></i> Zapisany na cały cykl
                         </button>
-                    </form>
+                    {% else %}
+                        <!-- Przycisk zapisu na CAŁĄ grupę -->
+                        <form action="{{ url_for('book_session') }}" method="POST">
+                            <input type="hidden" name="session_id" value="{{ main_session.id }}">
+                            <input type="hidden" name="book_recurring" value="yes">
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="fas fa-layer-group me-1"></i>
+                                {% if user_booked_count > 0 %}
+                                    Zapisz na pozostałe ({{ total_in_group - user_booked_count }})
+                                {% else %}
+                                    Zapisz się na cały cykl
+                                {% endif %}
+                            </button>
+                        </form>
+                    {% endif %}
 
                     <!-- Przycisk rozwijania listy pojedynczych terminów -->
                     <button class="btn btn-outline-secondary w-100" type="button" data-bs-toggle="collapse" data-bs-target="#group-{{ main_session.id }}">
-                        Wybierz pojedynczy termin <i class="fas fa-chevron-down ms-1"></i>
+                        {% if user_booked_count > 0 %}
+                            Zarządzaj terminami <i class="fas fa-chevron-down ms-1"></i>
+                        {% else %}
+                            Wybierz pojedynczy termin <i class="fas fa-chevron-down ms-1"></i>
+                        {% endif %}
                     </button>
                 </div>
 
@@ -38,24 +85,34 @@
                 <div class="collapse mt-3" id="group-{{ main_session.id }}">
                     <ul class="list-group list-group-flush small">
                         {% for s in group_list %}
-                            <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                            <li class="list-group-item d-flex justify-content-between align-items-center px-0 {% if s.id in user_booked_session_ids %}bg-success bg-opacity-10{% endif %}">
                                 <div>
                                     <strong>{{ s.date.strftime('%d.%m') }}</strong> ({{ s.start_time.strftime('%H:%M') }})
                                     <br>
-                                    <span class="text-muted">{{ s.current_participants }}/{{ s.max_participants }} miejsc</span>
+                                    <span class="text-muted">
+                                        <i class="fas fa-users me-1"></i>
+                                        {{ s.current_participants }}/{{ s.max_participants }} miejsc
+                                    </span>
+                                    {% if s.id in user_booked_session_ids %}
+                                        <span class="badge bg-success ms-2">Zapisany</span>
+                                    {% endif %}
                                 </div>
 
                                 {% if s.id in user_booked_session_ids %}
                                     <form action="{{ url_for('unbook_session') }}" method="POST">
                                         <input type="hidden" name="session_id" value="{{ s.id }}">
-                                        <button class="btn btn-sm btn-danger" title="Wypisz się"><i class="fas fa-times"></i></button>
+                                        <button class="btn btn-sm btn-danger" title="Wypisz się">
+                                            <i class="fas fa-times"></i> Wypisz
+                                        </button>
                                     </form>
                                 {% elif s.is_full %}
                                     <span class="badge bg-secondary">Pełne</span>
                                 {% else %}
                                     <form action="{{ url_for('book_session') }}" method="POST">
                                         <input type="hidden" name="session_id" value="{{ s.id }}">
-                                        <button class="btn btn-sm btn-outline-primary">Zapisz</button>
+                                        <button class="btn btn-sm btn-outline-primary">
+                                            <i class="fas fa-plus me-1"></i>Zapisz
+                                        </button>
                                     </form>
                                 {% endif %}
                             </li>
@@ -73,18 +130,32 @@
         <div class="card h-100 shadow-sm {% if session.is_full %}border-secondary bg-light text-muted{% endif %}">
             <div class="card-body">
                 <div class="d-flex justify-content-between mb-2">
-                    <span class="fw-bold">{{ session.date.strftime('%d.%m') }}</span>
+                    <span class="fw-bold">{{ session.date.strftime('%d.%m.%Y') }}</span>
                     <span class="badge bg-dark">{{ session.start_time.strftime('%H:%M') }}</span>
                 </div>
 
                 <h5 class="card-title">{{ session.title }}</h5>
-                <h6 class="card-subtitle mb-2 text-muted"><i class="fas fa-user me-1"></i> {{ session.trainer.username }}</h6>
+                <h6 class="card-subtitle mb-2 text-muted">
+                    <i class="fas fa-user me-1"></i> {{ session.trainer.username }}
+                </h6>
+
+                {% if session.id in user_booked_session_ids %}
+                    <div class="alert alert-success py-1 mb-2 small">
+                        <i class="fas fa-check-circle me-1"></i> Zapisany
+                    </div>
+                {% endif %}
+
                 <p class="card-text small">{{ session.description | truncate(80) }}</p>
+
+                <div class="small text-muted mb-2">
+                    <i class="fas fa-clock me-1"></i> {{ session.duration_minutes }} min
+                </div>
             </div>
 
             <div class="card-footer bg-white border-0">
                 <div class="d-flex justify-content-between align-items-center mb-2">
                     <span class="badge {% if session.is_full %}bg-danger{% else %}bg-success{% endif %}">
+                        <i class="fas fa-users me-1"></i>
                         {{ session.current_participants }} / {{ session.max_participants }}
                     </span>
                     <span class="fw-bold text-success">{{ session.price }} zł</span>
@@ -93,14 +164,18 @@
                 {% if session.id in user_booked_session_ids %}
                     <form action="{{ url_for('unbook_session') }}" method="POST" class="d-grid">
                         <input type="hidden" name="session_id" value="{{ session.id }}">
-                        <button class="btn btn-outline-danger">Wypisz się</button>
+                        <button class="btn btn-outline-danger">
+                            <i class="fas fa-times me-1"></i>Wypisz się
+                        </button>
                     </form>
                 {% elif session.is_full %}
                     <button class="btn btn-secondary w-100" disabled>Brak Miejsc</button>
                 {% else %}
                     <form action="{{ url_for('book_session') }}" method="POST" class="d-grid">
                         <input type="hidden" name="session_id" value="{{ session.id }}">
-                        <button class="btn btn-primary">Zapisz się</button>
+                        <button class="btn btn-primary">
+                            <i class="fas fa-plus me-1"></i>Zapisz się
+                        </button>
                     </form>
                 {% endif %}
             </div>

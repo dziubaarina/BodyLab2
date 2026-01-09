@@ -1,70 +1,131 @@
 {% extends "base.html" %}
-
 {% block title %}Zarządzaj: {{ session.title }}{% endblock %}
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <div>
-        <h1 class="h2 mb-0">Zarządzaj Zajęciami</h1>
-        <p class="text-muted mb-0">Szczegóły rezerwacji dla: <strong>{{ session.title }}</strong></p>
-    </div>
-    <a href="{{ url_for('trainer_dashboard') }}" class="btn btn-sm btn-outline-secondary">
-        <i class="fas fa-arrow-left me-1"></i> Wróć do Panelu Trenera
-    </a>
+    <h1 class="h2">Zarządzaj Zajęciami</h1>
+    <a href="{{ url_for('trainer_dashboard') }}" class="btn btn-outline-secondary btn-sm">Wróć</a>
 </div>
 
-<div class="card mb-4">
-    <div class="card-header">
-        Szczegóły Zajęć
-    </div>
+<div class="card mb-4 shadow-sm">
     <div class="card-body">
-        <p class="mb-1"><strong>Data i Godzina:</strong> {{ session.date.strftime('%Y-%m-%d') }} o {{ session.start_time.strftime('%H:%M') }}</p>
-        <p class="mb-1"><strong>Prowadzący:</strong> {{ session.trainer.username }}</p>
-        <p class="mb-0"><strong>Zapisani:</strong> {{ session.current_participants }} / {{ session.max_participants }}</p>
+        <h5 class="card-title text-primary">
+            {{ session.title }}
+            {% if session.recurrence_group_id %}
+                <i class="fas fa-sync-alt text-primary ms-2" title="Zajęcia cykliczne"></i>
+            {% endif %}
+        </h5>
+        <p class="mb-1"><strong>Data:</strong> {{ session.date.strftime('%Y-%m-%d') }} | {{ session.start_time.strftime('%H:%M') }}</p>
+        <p class="mb-1"><strong>Czas trwania:</strong> {{ session.duration_minutes }} min</p>
+        <p class="mb-1"><strong>Typ:</strong> {{ session.session_type }}</p>
+        <p><strong>Miejsca:</strong> {{ session.current_participants }} / {{ session.max_participants }}</p>
+
+        {% if recurring_sessions and recurring_sessions|length > 1 %}
+        <div class="alert alert-info mt-3 mb-0">
+            <i class="fas fa-info-circle me-2"></i>
+            To są zajęcia cykliczne. Łącznie <strong>{{ recurring_sessions|length }} terminów</strong>
+            ({{ recurring_sessions[0].date.strftime('%d.%m') }} - {{ recurring_sessions[-1].date.strftime('%d.%m.%Y') }})
+        </div>
+        {% endif %}
     </div>
 </div>
 
 <h3 class="h4">Lista Uczestników</h3>
-
-{% if session.bookings.count() > 0 %}
 <div class="table-responsive">
-    <table class="table table-striped table-hover">
+    <table class="table table-hover align-middle">
         <thead class="table-dark">
             <tr>
-                <th scope="col">ID Użytkownika</th>
-                <th scope="col">Nazwa Użytkownika</th>
+                <th scope="col">Użytkownik</th>
                 <th scope="col">Email</th>
-                <th scope="col">Akcje</th>
+                <th scope="col" class="text-center">Status zapisu</th>
+                <th scope="col" class="text-end">Akcje</th>
             </tr>
         </thead>
         <tbody>
-            {% for booking in session.bookings %}
-            <tr>
-                <td>{{ booking.user.id }}</td>
-                <td>{{ booking.user.username }}</td>
-                <td>{{ booking.user.email }}</td>
-                <td>
-                    <!-- Przycisk Anuluj (z potwierdzeniem JS) -->
-                    <form action="{{ url_for('cancel_booking', booking_id=booking.id) }}" method="POST" class="d-inline"
-                          onsubmit="return confirm('Czy na pewno chcesz anulować tę rezerwację?');">
-                        <button type="submit" class="btn btn-danger btn-sm">
-                            <i class="fas fa-trash-alt me-1"></i> Anuluj
-                        </button>
-                    </form>
-
-                    <!-- Przycisk Przenieś -->
-                    <a href="{{ url_for('move_booking', booking_id=booking.id) }}" class="btn btn-warning btn-sm">
-                        <i class="fas fa-arrow-right-to-bracket me-1"></i> Przenieś
-                    </a>
-                </td>
-            </tr>
-            {% endfor %}
+            {% if bookings_with_info %}
+                {% for item in bookings_with_info %}
+                <tr>
+                    <td><strong>{{ item.user.username }}</strong></td>
+                    <td>{{ item.user.email }}</td>
+                    <td class="text-center">
+                        {% if item.total_recurring > 1 %}
+                            {# Zajęcia cykliczne - pokaż ile terminów zarezerwowano #}
+                            {% if item.recurring_count == item.total_recurring %}
+                                <span class="badge bg-success">
+                                    <i class="fas fa-check-circle me-1"></i>
+                                    Cały cykl ({{ item.recurring_count }}/{{ item.total_recurring }})
+                                </span>
+                            {% elif item.recurring_count > 1 %}
+                                <span class="badge bg-primary">
+                                    <i class="fas fa-sync me-1"></i>
+                                    {{ item.recurring_count }}/{{ item.total_recurring }} terminów
+                                </span>
+                            {% else %}
+                                <span class="badge bg-secondary">
+                                    <i class="fas fa-thumbtack me-1"></i>
+                                    Tylko ten termin (1/{{ item.total_recurring }})
+                                </span>
+                            {% endif %}
+                        {% else %}
+                            {# Pojedyncze zajęcia #}
+                            <span class="badge bg-secondary">
+                                <i class="fas fa-calendar-check me-1"></i>
+                                Pojedynczy zapis
+                            </span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="d-flex justify-content-end gap-2">
+                            <form action="{{ url_for('cancel_booking', booking_id=item.booking.id) }}" method="POST"
+                                  onsubmit="return confirm('Czy na pewno chcesz anulować tę rezerwację?');">
+                                <button type="submit" class="btn btn-danger btn-sm">
+                                    <i class="fas fa-times me-1"></i>Anuluj
+                                </button>
+                            </form>
+                            <a href="{{ url_for('move_booking', booking_id=item.booking.id) }}" class="btn btn-warning btn-sm">
+                                <i class="fas fa-arrow-right me-1"></i>Przenieś
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            {% else %}
+                <tr>
+                    <td colspan="4" class="text-center text-muted py-4">
+                        <i class="fas fa-inbox fa-2x mb-2"></i>
+                        <p class="mb-0">Brak zapisanych uczestników</p>
+                    </td>
+                </tr>
+            {% endif %}
         </tbody>
     </table>
 </div>
-{% else %}
-<div class="alert alert-info">
-    Brak zapisanych uczestników na te zajęcia.
+
+{% if recurring_sessions and recurring_sessions|length > 1 %}
+<div class="card mt-4">
+    <div class="card-header bg-light">
+        <h5 class="mb-0"><i class="fas fa-list me-2"></i>Wszystkie terminy w cyklu</h5>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            {% for rs in recurring_sessions %}
+            <div class="col-md-3 mb-2">
+                <div class="p-2 border rounded {% if rs.id == session.id %}bg-primary text-white{% else %}bg-light{% endif %}">
+                    <i class="fas fa-calendar-day me-1"></i>
+                    {{ rs.date.strftime('%d.%m.%Y') }} {{ rs.start_time.strftime('%H:%M') }}
+                    <br>
+                    <small>
+                        <i class="fas fa-users me-1"></i>
+                        {{ rs.current_participants }}/{{ rs.max_participants }}
+                    </small>
+                    {% if rs.id == session.id %}
+                        <span class="badge bg-white text-primary ms-2">Obecny</span>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
 </div>
 {% endif %}
 
