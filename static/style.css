@@ -114,3 +114,23 @@ a:hover {
     color: #b56400;
     text-decoration: none;
 }
+/* Poprawka dla pól liczbowych, aby nie były zbyt szerokie na małych ekranach */
+input[type="number"] {
+    min-width: 60px;
+    padding: 8px 4px; /* Mniejszy padding boczny */
+    text-align: center;
+}
+
+/* Upewnienie się, że wiersz ćwiczenia ma czytelny tekst etykiet */
+.exercise-row label {
+    color: #2c2827; /* Ciemniejszy tekst na jasnym tle wiersza */
+    display: block;
+    margin-bottom: 4px;
+}
+
+/* Dodatkowe miejsce na przycisk usuwania w wersji mobilnej */
+@media (max-width: 767px) {
+    .remove-exercise {
+        padding: 8px 0;
+    }
+}
